@@ -42,6 +42,13 @@
   .results div{padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
   .results div span{color:var(--sub);font-size:12px;margin-left:6px}
   .me{width:18px;height:18px;border-radius:50%;background:#2d7cf6;border:3px solid #fff;box-shadow:0 0 0 4px rgba(45,124,246,.3)}
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  .item{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#fff}
+  .item .pin{flex:none;width:36px;height:36px;font-size:20px;border-width:2px}
+  .item b{display:block;font-size:15px}
+  .item .meta{font-size:13px;color:var(--sub)}
+  .item .links{margin-top:4px;font-size:13px}
+  .item .links a{color:var(--navy);font-weight:700;margin-right:10px}
   footer{padding:28px 0 40px;font-size:13px;color:var(--sub)}
   footer a{color:var(--sub)}
   @media (max-width:600px){header h1{font-size:26px} #map{height:340px}}
@@ -76,6 +83,14 @@
       <span><i style="background:#f1c40f"></i>😐 2~3달</span>
       <span><i style="background:#e74c3c"></i>😡 3달 넘음, 다시 할 때</span>
     </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>청소 기록</h2>
+    <p class="lead">최근 순. 누르면 지도에서 위치가 열립니다.</p>
+    <div class="list" id="list"></div>
   </div>
 </section>
 
@@ -177,6 +192,18 @@
     }
     countEl.textContent = ok ? `지금까지 ${ok}곳` : "아직 등록된 가게가 없습니다.";
     if(ok) map.fitBounds(bounds,{top:40,right:40,bottom:40,left:40});
+    const listEl=document.getElementById("list");
+    const ordered=pins.slice().reverse();
+    listEl.innerHTML=ordered.length?ordered.map((p,i)=>`<div class="item" data-i="${i}">
+        <div class="pin ${state(p.days).cls}">${state(p.days).face}</div>
+        <div><b>${p.row["가게명"]}</b>
+          <div class="meta">${p.row["작업"]||""}${p.row["날짜"]?" · "+p.row["날짜"]:""}${p.days!==null?" · "+p.days+"일 전":""}</div>
+          <div class="links">${p.row["영상링크"]?`<a href="${p.row["영상링크"]}" target="_blank" onclick="event.stopPropagation()">영상 ▶</a>`:""}${p.row["플레이스링크"]?`<a href="${p.row["플레이스링크"]}" target="_blank" onclick="event.stopPropagation()">가게 보기</a>`:""}</div>
+        </div></div>`).join(""):`<p class="lead">아직 기록이 없습니다.</p>`;
+    [...listEl.querySelectorAll(".item")].forEach(el=>el.onclick=()=>{const p=ordered[+el.dataset.i];
+      map.setCenter(p.pos); map.setZoom(16); info.setContent(p.html); info.open(map,p.marker);
+      window.scrollTo({top:document.getElementById("map").offsetTop-10,behavior:"smooth"});});
+
     const want=new URLSearchParams(location.search).get("s");
     if(want){ const p=pins.find(p=>p.row["가게명"]===want)||pins.find(p=>p.row["가게명"].includes(want));
       if(p){ map.setCenter(p.pos); map.setZoom(16); info.setContent(p.html); info.open(map,p.marker); } }
