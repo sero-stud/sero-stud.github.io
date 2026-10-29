@@ -282,6 +282,17 @@
     const m = url.match(/(?:shorts\/|v=|youtu\.be\/)([\w-]{11})/); return m?m[1]:null;
   }
 
+  function savedCoordinates(row){
+    const lat=String(row['위도']??'').trim(), lng=String(row['경도']??'').trim();
+    if(!lat||!lng)return null;
+    const y=Number(lat),x=Number(lng);
+    return Number.isFinite(y)&&Number.isFinite(x)&&y>=-90&&y<=90&&x>=-180&&x<=180?{x,y}:null;
+  }
+  function resolveStorePosition(row,callback){
+    const point=savedCoordinates(row);
+    if(point){callback(naver.maps.Service.Status.OK,{v2:{addresses:[point]}});return;}
+    naver.maps.Service.geocode({query:row['주소']},callback);
+  }
   function recordTime(row){
     const m=(row['날짜']||'').match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
     return m ? new Date(+m[1],+m[2]-1,+m[3]).getTime() : 0;
@@ -296,6 +307,7 @@
       if(!groups.has(key)) groups.set(key,{...row,_jobs:new Set()});
       const store=groups.get(key);
       if(row['작업']) store._jobs.add(row['작업'].trim());
+      if(!savedCoordinates(store)&&savedCoordinates(row)){store['위도']=row['위도'];store['경도']=row['경도'];}
       if(!store['영상링크'] && row['영상링크']) store['영상링크']=row['영상링크'];
       if(!store['플레이스링크'] && row['플레이스링크']) store['플레이스링크']=row['플레이스링크'];
     }
@@ -317,7 +329,7 @@
         let settled=false;
         const done=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};
         const timer=setTimeout(done,6000);
-        try{naver.maps.Service.geocode({query:row["주소"]},(status,resp)=>{
+        try{resolveStorePosition(row,(status,resp)=>{
           if(settled) return;
           try{
           const a=resp&&resp.v2&&resp.v2.addresses&&resp.v2.addresses[0];
