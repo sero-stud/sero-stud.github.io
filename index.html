@@ -165,9 +165,13 @@
     const sorted=records.slice().sort((a,b)=>recordTime(b)-recordTime(a));
     for(const row of sorted){
       const key=norm(row['가게명'])+'|'+norm(row['주소']);
-      if(!groups.has(key)) groups.set(key,{...row});
+      if(!groups.has(key)) groups.set(key,{...row,_jobs:new Set()});
+      const store=groups.get(key);
+      if(row['작업']) store._jobs.add(row['작업'].trim());
+      if(!store['영상링크'] && row['영상링크']) store['영상링크']=row['영상링크'];
+      if(!store['플레이스링크'] && row['플레이스링크']) store['플레이스링크']=row['플레이스링크'];
     }
-    return [...groups.values()];
+    return [...groups.values()].map(store=>({...store,'작업':[...store._jobs].join(' · ')}));
   }
   async function init(){
     const map = new naver.maps.Map("map",{center:new naver.maps.LatLng(37.56,127.0),zoom:10});
