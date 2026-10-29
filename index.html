@@ -154,12 +154,28 @@
     const m = url.match(/(?:shorts\/|v=|youtu\.be\/)([\w-]{11})/); return m?m[1]:null;
   }
 
+  function recordTime(row){
+    const m=(row['날짜']||'').match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
+    return m ? new Date(+m[1],+m[2]-1,+m[3]).getTime() : 0;
+  }
+  function storesForMap(records){
+    const groups=new Map();
+    // Same store name and address are one place, regardless of work count or number assignment.
+    const norm=x=>String(x||'').replace(/\s+/g,'').toLowerCase();
+    const sorted=records.slice().sort((a,b)=>recordTime(b)-recordTime(a));
+    for(const row of sorted){
+      const key=norm(row['가게명'])+'|'+norm(row['주소']);
+      if(!groups.has(key)) groups.set(key,{...row});
+    }
+    return [...groups.values()];
+  }
   async function init(){
     const map = new naver.maps.Map("map",{center:new naver.maps.LatLng(37.56,127.0),zoom:10});
     const countEl=document.getElementById("count");
     let data=[];
     try{
       const res=await fetch(SHEET_CSV_URL+(SHEET_CSV_URL.includes("?")?"&":"?")+"t="+Date.now());
+      if(!res.ok) throw new Error("sheet");
       data=parseCSV(await res.text());
     }catch(e){ countEl.textContent="가게 목록을 불러오지 못했습니다."; return; }
 
@@ -167,7 +183,7 @@
     const bounds=new naver.maps.LatLngBounds();
     let ok=0; const pins=[];
 
-    for(const row of data){
+    for(const row of storesForMap(data)){
       if(!row["주소"]) continue;
       await new Promise(resolve=>{
         naver.maps.Service.geocode({query:row["주소"]},(status,resp)=>{
@@ -193,7 +209,7 @@
     countEl.textContent = ok ? `지금까지 ${ok}곳` : "아직 등록된 가게가 없습니다.";
     if(ok) map.fitBounds(bounds,{top:40,right:40,bottom:40,left:40});
     const listEl=document.getElementById("list");
-    const ordered=pins.slice().reverse();
+    const ordered=pins.slice().sort((a,b)=>recordTime(b.row)-recordTime(a.row));
     listEl.innerHTML=ordered.length?ordered.map((p,i)=>`<div class="item" data-i="${i}">
         <div class="pin ${state(p.days).cls}">${state(p.days).face}</div>
         <div><b>${p.row["가게명"]}</b>
@@ -231,7 +247,8 @@
     };
 
     // 최근 영상 3개 (시트의 영상링크 중 최신 순)
-    const vids=data.filter(r=>ytId(r["영상링크"]||"")).slice(-3).reverse();
+    const seenVideos=new Set();
+    const vids=data.slice().sort((a,b)=>recordTime(b)-recordTime(a)).filter(r=>{const id=ytId(r["영상링크"]||"");if(!id||seenVideos.has(id))return false;seenVideos.add(id);return true}).slice(0,3);
     const vEl=document.getElementById("videos");
     vEl.innerHTML = vids.length
       ? vids.map(r=>`<div class="video"><iframe src="https://www.youtube.com/embed/${ytId(r["영상링크"])}" allowfullscreen loading="lazy"></iframe></div>`).join("")
