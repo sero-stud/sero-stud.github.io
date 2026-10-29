@@ -121,7 +121,7 @@
   const s = document.createElement("script");
   s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}&submodules=geocoder`;
   s.onload = init;
-  document.head.appendChild(s);
+  if (!new URLSearchParams(location.search).has("id")) document.head.appendChild(s);
 
   function parseCSV(text){
     const rows=[]; let row=[], cur="", q=false;
@@ -238,5 +238,6 @@
       : `<p class="lead">첫 영상 준비 중입니다.</p>`;
   }
 </script>
+<script src="/owner.js"></script>
 </body>
 </html>
