@@ -131,31 +131,59 @@
   const CACHE_KEY = "sero-public-records-v1";
   function esc(value){return String(value ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
   function safeURL(value){try{const u=new URL(value);return /^https?:$/.test(u.protocol)?esc(u.href):"";}catch{return "";}}
+  let sdkTask=null, sdkSequence=0;
+  function mapSDKReady(){
+    return typeof window.naver?.maps?.Map==="function" &&
+           typeof window.naver?.maps?.Service?.geocode==="function";
+  }
   function loadMapSDK(){
-    if(window.naver?.maps?.Service) return Promise.resolve();
-    return new Promise((resolve,reject)=>{
+    if(mapSDKReady()) return Promise.resolve();
+    if(sdkTask) return sdkTask;
+    sdkTask=new Promise((resolve,reject)=>{
       const script=document.createElement("script");
+      const callback="seroMapReady"+(++sdkSequence);
       let finished=false;
       const finish=(error)=>{
-        if(finished) return; finished=true; clearTimeout(timer);
+        if(finished) return; finished=true;
+        clearTimeout(timeout);clearTimeout(slowNotice);
         script.onload=script.onerror=null;
+        window[callback]=()=>{};
         if(error){script.remove();reject(error);}else resolve();
       };
-      const timer=setTimeout(()=>finish(new Error("map timeout")),12000);
-      script.src=`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}&submodules=geocoder`;
-      script.onload=()=>finish(window.naver?.maps?.Service?null:new Error("map unavailable"));
+      const slowNotice=setTimeout(()=>{
+        if(!finished) mapStatus.textContent="지도 연결에 시간이 걸리고 있습니다. 청소 기록과 영상은 아래에서 확인하실 수 있습니다.";
+      },8000);
+      const timeout=setTimeout(()=>finish(new Error("map timeout")),45000);
+      // NAVER invokes callback after all requested submodules are ready.
+      window[callback]=()=>{
+        if(mapSDKReady())finish();
+        else finish(new Error("map unavailable"));
+      };
+      script.src=`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}&submodules=geocoder&callback=${callback}`;
+      script.async=true;
+      // onload alone does not guarantee that the geocoder submodule is ready.
+      script.onload=()=>{if(mapSDKReady())finish();};
       script.onerror=()=>finish(new Error("map network"));
       document.head.appendChild(script);
-    });
+    }).catch(error=>{sdkTask=null;throw error;});
+    return sdkTask;
   }
   function startMap(data){
     if(mapTask) return mapTask;
     mapStatus.textContent="지도를 불러오는 중…";
     retryMap.hidden=true;
     mapTask=(async()=>{
-      await loadMapSDK();
-      await initMap(data);
-      return true;
+      for(let attempt=0;attempt<3;attempt++){
+        try{
+          await loadMapSDK();
+          await initMap(data);
+          return true;
+        }catch(error){
+          if(attempt===2) throw error;
+          mapStatus.textContent="지도 연결을 다시 시도하고 있습니다. 청소 기록과 영상은 아래에서 확인하실 수 있습니다.";
+          await new Promise(resolve=>setTimeout(resolve,800*(attempt+1)));
+        }
+      }
     })().catch(()=>{
       mapStatus.textContent="지도를 불러오지 못했습니다. 청소 기록과 영상은 아래에서 확인할 수 있습니다.";
       retryMap.hidden=false; mapTask=null;
