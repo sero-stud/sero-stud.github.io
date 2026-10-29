@@ -49,6 +49,7 @@
   .item .meta{font-size:13px;color:var(--sub)}
   .item .links{margin-top:4px;font-size:13px}
   .item .links a{color:var(--navy);font-weight:700;margin-right:10px}
+  #retry-data,#retry-map{margin-top:8px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--navy);cursor:pointer}
   footer{padding:28px 0 40px;font-size:13px;color:var(--sub)}
   footer a{color:var(--sub)}
   @media (max-width:600px){header h1{font-size:26px} #map{height:340px}}
@@ -77,7 +78,10 @@
     </div>
     <div id="map"></div>
     <div class="results" id="results"></div>
-    <div class="count" id="count">불러오는 중…</div>
+    <div class="count" id="count" role="status">불러오는 중…</div>
+    <button id="retry-data" type="button" hidden>기록 다시 불러오기</button>
+    <div class="count" id="map-status" role="status">지도를 불러오는 중…</div>
+    <button id="retry-map" type="button" hidden>지도 다시 불러오기</button>
     <div class="legend">
       <span><i style="background:#2ecc71"></i>😊 청소한 지 2달 이내</span>
       <span><i style="background:#f1c40f"></i>😐 2~3달</span>
@@ -117,12 +121,106 @@
 <!-- ================================== -->
 
 <script>
-  // 네이버 지도 스크립트 동적 로드 (geocoder 서브모듈 포함)
-  const s = document.createElement("script");
-  s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}&submodules=geocoder`;
-  s.onload = init;
-  if (!new URLSearchParams(location.search).has("id")) document.head.appendChild(s);
-
+  // Records never wait for the map SDK or address lookups.
+  let currentData = [], currentPins = [], mapTask = null, currentMap = null, sheetBusy = false;
+  const isOwnerPage = new URLSearchParams(location.search).has("id");
+  const mapStatus = document.getElementById("map-status");
+  const retryData = document.getElementById("retry-data");
+  const retryMap = document.getElementById("retry-map");
+  const countEl = document.getElementById("count");
+  const CACHE_KEY = "sero-public-records-v1";
+  function esc(value){return String(value ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+  function safeURL(value){try{const u=new URL(value);return /^https?:$/.test(u.protocol)?esc(u.href):"";}catch{return "";}}
+  function loadMapSDK(){
+    if(window.naver?.maps?.Service) return Promise.resolve();
+    return new Promise((resolve,reject)=>{
+      const script=document.createElement("script");
+      let finished=false;
+      const finish=(error)=>{
+        if(finished) return; finished=true; clearTimeout(timer);
+        script.onload=script.onerror=null;
+        if(error){script.remove();reject(error);}else resolve();
+      };
+      const timer=setTimeout(()=>finish(new Error("map timeout")),12000);
+      script.src=`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}&submodules=geocoder`;
+      script.onload=()=>finish(window.naver?.maps?.Service?null:new Error("map unavailable"));
+      script.onerror=()=>finish(new Error("map network"));
+      document.head.appendChild(script);
+    });
+  }
+  function startMap(data){
+    if(mapTask) return mapTask;
+    mapStatus.textContent="지도를 불러오는 중…";
+    retryMap.hidden=true;
+    mapTask=(async()=>{
+      await loadMapSDK();
+      await initMap(data);
+      return true;
+    })().catch(()=>{
+      mapStatus.textContent="지도를 불러오지 못했습니다. 청소 기록과 영상은 아래에서 확인할 수 있습니다.";
+      retryMap.hidden=false; mapTask=null;
+      return false;
+    });
+    return mapTask;
+  }
+  async function openRow(row){
+    if(!await startMap(currentData)) return;
+    const pin=currentPins.find(p=>p.row["가게명"]===row["가게명"]&&p.row["주소"]===row["주소"]);
+    if(pin) pin.open();
+    else mapStatus.textContent="이 가게의 지도 위치를 불러오지 못했습니다. 기록과 영상은 확인할 수 있습니다.";
+  }
+  function showRecordResults(rows){
+    const el=document.getElementById("results");
+    el.innerHTML=rows.length?rows.map((r,i)=>`<div data-i="${i}">${esc(r["가게명"])}<span>${esc(r["작업"])}</span></div>`).join(""):'<div>결과 없음</div>';
+    [...el.children].forEach(child=>child.onclick=()=>{if(rows[child.dataset.i]) openRow(rows[child.dataset.i]);});
+  }
+  function renderData(data){
+    const ordered=storesForMap(data);
+    countEl.textContent=ordered.length?`지금까지 ${ordered.length}곳`:"아직 등록된 가게가 없습니다.";
+    const list=document.getElementById("list");
+    list.innerHTML=ordered.length?ordered.map((r,i)=>{
+      const days=daysSince(r["날짜"]), st=state(days);
+      const video=safeURL(r["영상링크"]), place=safeURL(r["플레이스링크"]);
+      return `<div class="item" data-i="${i}"><div class="pin ${st.cls}">${st.face}</div><div><b>${esc(r["가게명"])}</b><div class="meta">${esc(r["작업"])}${r["날짜"]?" · "+esc(r["날짜"]):""}${days!==null?" · "+days+"일 전":""}</div><div class="links">${video?`<a href="${video}" target="_blank" rel="noopener">영상 ▶</a>`:""}${place?`<a href="${place}" target="_blank" rel="noopener">가게 보기</a>`:""}</div></div></div>`;
+    }).join(""):'<p class="lead">아직 기록이 없습니다.</p>';
+    [...list.querySelectorAll(".item")].forEach(el=>el.onclick=e=>{if(!e.target.closest("a"))openRow(ordered[el.dataset.i]);});
+    const seen=new Set();
+    const videos=data.slice().sort((a,b)=>recordTime(b)-recordTime(a)).filter(r=>{const id=ytId(r["영상링크"]||"");if(!id||seen.has(id))return false;seen.add(id);return true;}).slice(0,3);
+    document.getElementById("videos").innerHTML=videos.length?videos.map(r=>`<div class="video"><iframe title="청소 작업 영상" src="https://www.youtube.com/embed/${ytId(r["영상링크"])}" allowfullscreen loading="lazy"></iframe></div>`).join(""):'<p class="lead">첫 영상 준비 중입니다.</p>';
+    document.getElementById("q").oninput=e=>{
+      const q=e.target.value.trim();
+      if(!q){document.getElementById("results").innerHTML="";return;}
+      showRecordResults(ordered.filter(r=>((r["가게명"]||"")+" "+(r["주소"]||"")).includes(q)));
+    };
+  }
+  async function loadRecords(){
+    if(sheetBusy) return; sheetBusy=true; retryData.hidden=true;
+    if(!currentData.length) countEl.textContent="청소 기록을 불러오는 중…";
+    let data=null;
+    for(let attempt=0;attempt<2;attempt++){
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),10000);
+      try{
+        const res=await fetch(SHEET_CSV_URL,{signal:controller.signal,cache:"no-cache"});
+        if(!res.ok) throw new Error("sheet response");
+        const text=await res.text();
+        if(/^\s*</.test(text)) throw new Error("sheet returned HTML");
+        data=parseCSV(text); break;
+      }catch(error){
+        if(attempt===0) countEl.textContent=currentData.length?"저장된 기록 표시 중 · 최신 기록 다시 확인 중…":"청소 기록을 다시 불러오는 중…";
+      }finally{clearTimeout(timer);}
+    }
+    sheetBusy=false;
+    if(data===null){
+      countEl.textContent=currentData.length?"저장된 기록을 표시하고 있습니다. 최신 기록을 불러오지 못했습니다.":"청소 기록을 불러오지 못했습니다. 다시 시도해 주세요.";
+      retryData.hidden=false;return;
+    }
+    currentData=data; renderData(data);
+    try{localStorage.setItem(CACHE_KEY,JSON.stringify({at:Date.now(),data}));}catch{}
+    // Rebuild only if cached data started an earlier map render.
+    if(mapTask) await mapTask;
+    mapTask=null; startMap(data);
+  }
   function parseCSV(text){
     const rows=[]; let row=[], cur="", q=false;
     for(let i=0;i<text.length;i++){
@@ -134,7 +232,9 @@
       else if(c!=='\r') cur+=c;
     }
     if(cur!==""||row.length){row.push(cur);rows.push(row);}
-    const head=rows.shift().map(h=>h.trim());
+    if(!rows.length) return [];
+    const head=rows.shift().map(h=>h.replace(/^\uFEFF/," ").trim());
+    if(!head.includes("가게명") || !head.includes("주소")) throw new Error("sheet columns");
     return rows.filter(r=>r.some(v=>v.trim())).map(r=>Object.fromEntries(head.map((h,i)=>[h,(r[i]||"").trim()])));
   }
 
@@ -173,26 +273,27 @@
     }
     return [...groups.values()].map(store=>({...store,'작업':[...store._jobs].join(' · ')}));
   }
-  async function init(){
+  async function initMap(data){
+    if(currentMap && typeof currentMap.destroy === "function") currentMap.destroy();
     const map = new naver.maps.Map("map",{center:new naver.maps.LatLng(37.56,127.0),zoom:10});
-    const countEl=document.getElementById("count");
-    let data=[];
-    try{
-      const res=await fetch(SHEET_CSV_URL+(SHEET_CSV_URL.includes("?")?"&":"?")+"t="+Date.now());
-      if(!res.ok) throw new Error("sheet");
-      data=parseCSV(await res.text());
-    }catch(e){ countEl.textContent="가게 목록을 불러오지 못했습니다."; return; }
-
+    currentMap=map;
     const info=new naver.maps.InfoWindow({borderWidth:0,backgroundColor:"#fff",anchorSize:new naver.maps.Size(10,10)});
     const bounds=new naver.maps.LatLngBounds();
     let ok=0; const pins=[];
 
-    for(const row of storesForMap(data)){
-      if(!row["주소"]) continue;
+    const queue=storesForMap(data).filter(row=>row["주소"]);
+    async function worker(){
+      while(queue.length){
+      const row=queue.shift();
       await new Promise(resolve=>{
-        naver.maps.Service.geocode({query:row["주소"]},(status,resp)=>{
+        let settled=false;
+        const done=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};
+        const timer=setTimeout(done,6000);
+        try{naver.maps.Service.geocode({query:row["주소"]},(status,resp)=>{
+          if(settled) return;
+          try{
           const a=resp&&resp.v2&&resp.v2.addresses&&resp.v2.addresses[0];
-          if(status!==naver.maps.Service.Status.OK||!a){resolve();return;}
+          if(status!==naver.maps.Service.Status.OK||!a){done();return;}
           const pos=new naver.maps.LatLng(+a.y,+a.x);
           const days=daysSince(row["날짜"]); const st=state(days);
           const marker=new naver.maps.Marker({position:pos,map,title:row["가게명"],
@@ -206,24 +307,21 @@
             ${st.cls==="pin-bad"?`<br><a class="rebook" href="/go/">다시 예약하기</a>`:""}</div>`;
           naver.maps.Event.addListener(marker,"click",()=>{info.setContent(html);info.open(map,marker);});
           pins.push({row,marker,pos,html,days});
-          resolve();
-        });
+          }finally{done();}
+        });}catch{done();}
       });
+      }
     }
-    countEl.textContent = ok ? `지금까지 ${ok}곳` : "아직 등록된 가게가 없습니다.";
+    await Promise.all(Array.from({length:Math.min(4,queue.length)},()=>worker()));
+    currentPins=pins;
+    for(const pin of pins) pin.open=()=>{
+      map.setCenter(pin.pos);map.setZoom(16);info.setContent(pin.html);info.open(map,pin.marker);
+      window.scrollTo({top:document.getElementById("map").offsetTop-10,behavior:"smooth"});
+    };
+    const total=storesForMap(data).length;
+    mapStatus.textContent=ok===total?"":`지도에 ${total}곳 중 ${ok}곳 표시 · 청소 기록은 아래에서 확인할 수 있습니다.`;
+    retryMap.hidden=ok===total || total===0;
     if(ok) map.fitBounds(bounds,{top:40,right:40,bottom:40,left:40});
-    const listEl=document.getElementById("list");
-    const ordered=pins.slice().sort((a,b)=>recordTime(b.row)-recordTime(a.row));
-    listEl.innerHTML=ordered.length?ordered.map((p,i)=>`<div class="item" data-i="${i}">
-        <div class="pin ${state(p.days).cls}">${state(p.days).face}</div>
-        <div><b>${p.row["가게명"]}</b>
-          <div class="meta">${p.row["작업"]||""}${p.row["날짜"]?" · "+p.row["날짜"]:""}${p.days!==null?" · "+p.days+"일 전":""}</div>
-          <div class="links">${p.row["영상링크"]?`<a href="${p.row["영상링크"]}" target="_blank" onclick="event.stopPropagation()">영상 ▶</a>`:""}${p.row["플레이스링크"]?`<a href="${p.row["플레이스링크"]}" target="_blank" onclick="event.stopPropagation()">가게 보기</a>`:""}</div>
-        </div></div>`).join(""):`<p class="lead">아직 기록이 없습니다.</p>`;
-    [...listEl.querySelectorAll(".item")].forEach(el=>el.onclick=()=>{const p=ordered[+el.dataset.i];
-      map.setCenter(p.pos); map.setZoom(16); info.setContent(p.html); info.open(map,p.marker);
-      window.scrollTo({top:document.getElementById("map").offsetTop-10,behavior:"smooth"});});
-
     const want=new URLSearchParams(location.search).get("s");
     if(want){ const p=pins.find(p=>p.row["가게명"]===want)||pins.find(p=>p.row["가게명"].includes(want));
       if(p){ map.setCenter(p.pos); map.setZoom(16); info.setContent(p.html); info.open(map,p.marker); } }
@@ -235,10 +333,6 @@
       [...resEl.children].forEach(el=>el.onclick=()=>{const p=list[+el.dataset.i]; if(!p) return;
         map.setCenter(p.pos); map.setZoom(15); info.setContent(p.html); info.open(map,p.marker); window.scrollTo({top:document.getElementById("map").offsetTop-10,behavior:"smooth"});});
     }
-    document.getElementById("q").addEventListener("input",e=>{
-      const q=e.target.value.trim(); if(!q){resEl.innerHTML="";return;}
-      showList(pins.filter(p=>(p.row["가게명"]+" "+p.row["주소"]).includes(q)));
-    });
     document.getElementById("locate").onclick=()=>{
       if(!navigator.geolocation){alert("이 브라우저는 위치를 지원하지 않아요");return;}
       navigator.geolocation.getCurrentPosition(g=>{
@@ -250,14 +344,23 @@
       },()=>alert("위치를 가져오지 못했어요. 위치 권한을 확인해 주세요."),{enableHighAccuracy:true,timeout:8000});
     };
 
-    // 최근 영상 3개 (시트의 영상링크 중 최신 순)
-    const seenVideos=new Set();
-    const vids=data.slice().sort((a,b)=>recordTime(b)-recordTime(a)).filter(r=>{const id=ytId(r["영상링크"]||"");if(!id||seenVideos.has(id))return false;seenVideos.add(id);return true}).slice(0,3);
-    const vEl=document.getElementById("videos");
-    vEl.innerHTML = vids.length
-      ? vids.map(r=>`<div class="video"><iframe src="https://www.youtube.com/embed/${ytId(r["영상링크"])}" allowfullscreen loading="lazy"></iframe></div>`).join("")
-      : `<p class="lead">첫 영상 준비 중입니다.</p>`;
   }
+  if(!isOwnerPage){
+    retryData.onclick=loadRecords;
+    retryMap.onclick=async()=>{if(mapTask)await mapTask;mapTask=null;startMap(currentData);};
+    document.getElementById("locate").onclick=()=>{mapStatus.textContent="지도를 준비하고 있습니다. 잠시 후 다시 눌러 주세요.";startMap(currentData);};
+    try{
+      const cached=JSON.parse(localStorage.getItem(CACHE_KEY)||"null");
+      if(cached&&Array.isArray(cached.data)&&cached.data.length&&Date.now()-cached.at<86400000){
+        currentData=cached.data;renderData(currentData);
+        countEl.textContent+=" · 저장된 기록 표시 중, 최신 기록 확인 중…";
+      }
+    }catch{}
+    loadRecords();
+    // Start loading the SDK in parallel with the sheet; failures are handled by startMap.
+    startMap(currentData);
+  }
+
 </script>
 <script src="/owner.js"></script>
 </body>
