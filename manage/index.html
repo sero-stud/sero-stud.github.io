@@ -1,69 +1,21 @@
-<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>세로 · 팀 업무</title>
-<style>
-:root{--navy:#163060;--muted:#68768a;--border:#e1e6ef}*{box-sizing:border-box}body{margin:0;background:#f3f5f9;color:#18263b;font:15px/1.5 system-ui,-apple-system,'Malgun Gothic',sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--border);background:white;border-radius:10px;padding:10px 15px;color:var(--navy)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #84b3ff;outline-offset:2px}.primary{background:var(--navy);color:white;border-color:var(--navy)}header{background:var(--navy);color:white;padding:25px max(20px,calc((100vw - 1200px)/2))}header small{letter-spacing:2px;color:#c0d1ec}h1{font-size:25px;margin:5px 0}.wrap{max-width:1240px;padding:24px 20px;margin:auto}.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:22px}.toolbar .grow{flex:1}.muted{color:var(--muted)}#status{min-height:24px;font-size:13px;margin-bottom:12px}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.column{background:#eaf0f7;border:1px solid #dce4f0;border-radius:16px;padding:17px;align-self:start}.column h2{font-size:18px;margin:0}.column-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.count{font-size:12px;color:var(--muted);margin-top:4px}.task{padding:17px;background:white;border:1px solid var(--border);border-radius:12px;margin-bottom:11px;box-shadow:0 2px 4px #16306004}.task-top{display:flex;gap:10px;align-items:flex-start}.task input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--navy);margin-top:3px}.task strong{overflow-wrap:anywhere}.task p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:var(--muted);margin:10px 0}.task footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)}.task footer button{font-size:12px;padding:4px 9px}.done strong{text-decoration:line-through;color:var(--muted)}.late{color:#bd382d!important}.empty{text-align:center;padding:35px 10px;color:var(--muted);font-size:13px}.add{width:100%;background:transparent;border:1px dashed #aebdd0}dialog{border:0;border-radius:18px;width:min(460px,calc(100vw - 32px));padding:25px;box-shadow:0 20px 80px #14284833}dialog::backdrop{background:#12244066}dialog h2{margin:0 0 18px;font-size:21px}label.field{display:block;margin:13px 0}label.field span{display:block;font-size:13px;margin-bottom:6px}input:not([type=checkbox]),select,textarea{width:100%;padding:11px 12px;border:1px solid #cbd5e2;border-radius:9px;background:white;color:#18263b}textarea{resize:vertical;min-height:100px}.actions{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}.login{max-width:420px;background:white;border:1px solid var(--border);padding:28px;border-radius:18px;margin:45px auto}.login h2{margin-top:0}.error{color:#b12c23;font-size:13px;white-space:pre-wrap}[hidden]{display:none!important}@media(max-width:760px){.board{grid-template-columns:1fr}.wrap{padding:18px 14px}header{padding:20px}.toolbar{gap:8px}.column{padding:15px}}
-</style></head><body>
-<header><small>SERO TEAM</small><h1>함께 챙기는 오늘의 할 일</h1><div>세로 팀 업무 관리</div></header>
-<main class="wrap">
-<section id="loginPanel" class="login"><h2>팀 로그인</h2><p class="muted">본인 담당자와 비밀번호로 들어오세요.</p><form id="loginForm"><label class="field"><span>담당자</span><select id="loginUser"><option value="a">담당자 A</option><option value="b">담당자 B</option><option value="c">담당자 C</option></select></label><label class="field"><span>비밀번호</span><input id="pin" type="password" required autocomplete="current-password"></label><p id="loginError" class="error" role="alert"></p><button class="primary" id="loginButton">들어가기</button></form></section>
-<section id="app" hidden><div class="toolbar"><strong id="who"></strong><span class="grow"></span><label><input type="checkbox" id="showDone"> 완료한 일 보기</label><button id="refresh">새로고침</button><button id="exit">로그아웃</button></div><div id="status" role="status" aria-live="polite"></div><div class="board" id="board"></div></section>
-</main>
-<dialog id="editor"><form id="taskForm"><h2 id="editorTitle">할 일 추가</h2><label class="field"><span>담당자</span><select id="assignee"></select></label><label class="field"><span>할 일</span><input id="title" required maxlength="160" placeholder="예: ○○카페 견적 보내기"></label><label class="field"><span>마감일 · 선택</span><input id="due" type="date"></label><label class="field"><span>메모 · 선택</span><textarea id="note" maxlength="3000" placeholder="함께 알아야 할 내용을 적어 주세요."></textarea></label><p id="formError" class="error" role="alert"></p><div class="actions"><button type="button" id="cancel">취소</button><button class="primary" id="save">저장</button></div></form></dialog>
-<script>
-// 배포 → 웹 앱에서 복사한 /exec 주소를 작은따옴표 안에 넣으세요.
-const APP_URL = 'https://script.google.com/macros/s/AKfycbwIhs6s4HrX8fuwnYUd1mXwTd9DeToelOwcnz3eI7xT6H-UGX6D64O6WFO516tYjD8/exec';
-let token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0;
-function validEndpoint(){try{const u=new URL(APP_URL);return u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname)&&!u.search&&!u.hash;}catch{return false;}}
-const $=id=>document.getElementById(id);
-async function call(name,...args){
- if(!validEndpoint())throw new Error('관리자가 team/index.html의 APP_URL에 웹 앱 배포 주소를 먼저 넣어 주세요.');
- const payload={action:name};
- if(name==='login'){payload.id=args[0];payload.pin=args[1];}
- else{payload.token=args[0];if(name==='saveTask')payload.task=args[1];}
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
- try{
-   const res=await fetch(APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),credentials:'omit',redirect:'follow',cache:'no-store',signal:controller.signal});
-   if(!res.ok)throw new Error('서버 응답 오류입니다. 웹 앱 배포 설정을 확인하세요.');
-   let result;try{result=JSON.parse(await res.text());}catch{throw new Error('서버 연결을 확인하세요. 배포는 실행 사용자 ‘나’, 액세스 ‘모든 사용자’로 설정해야 합니다.');}
-   if(!result.ok){const err=new Error(result.error||'요청을 처리하지 못했습니다.');err.code=result.code;throw err;}
-   return result.data;
- }catch(err){
-   if(err.name==='AbortError'||err instanceof TypeError)throw new Error(name==='saveTask'?'저장 결과를 확인하지 못했습니다. 취소 후 새로고침으로 반영 여부를 확인하고 다시 시도하세요.':'서버에 연결하지 못했습니다. 인터넷과 웹 앱 배포 주소·권한을 확인하세요.');
-   throw err;
- }finally{clearTimeout(timeout);}
-}
-function message(e){return e&&e.message?e.message:String(e);}
-function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
-function setBusy(v){busy=v;$('save').disabled=v;$('refresh').disabled=v;document.querySelectorAll('#board button,#board input').forEach(e=>e.disabled=v);}
-async function load(quiet=false){
- if(!token||busy||loading)return;
- loading=true;const epoch=generation;
- if(!quiet)$('status').textContent='공유 할 일을 불러오는 중…';
- try{const data=await call('getBoard',token);if(epoch!==generation)return;team=data.team;tasks=data.tasks;if(!$('editor').open&&!busy)render();$('status').textContent='최근 확인 '+new Date().toLocaleTimeString('ko-KR')+' · 30초마다 확인';}
- catch(e){$('status').textContent=message(e);if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}}finally{loading=false;}
-}
-function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function render(){
- $('board').replaceChildren();
- team.forEach(person=>{
-  const all=tasks.filter(t=>t.assignee===person.id),visible=all.filter(t=>$('showDone').checked||!t.done).sort((a,b)=>Number(a.done)-Number(b.done)||(a.due||'9999').localeCompare(b.due||'9999')||b.createdAt.localeCompare(a.createdAt));
-  const col=node('section',undefined,'column'),head=node('div',undefined,'column-head'),info=node('div');
-  info.append(node('h2',person.name),node('div',`남은 일 ${all.filter(t=>!t.done).length} · 완료 ${all.filter(t=>t.done).length}`,'count'));head.append(info);col.append(head);
-  visible.forEach(task=>{
-   const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
-   if(task.note)card.append(node('p',task.note));
-   const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);col.append(card);
-  });
-  if(!visible.length)col.append(node('div','등록된 할 일이 없어요.','empty'));
-  const add=node('button','+ 할 일 추가','add');add.onclick=()=>openEditor(person.id);col.append(add);$('board').append(col);
- });
-}
-function openEditor(id,task=null){editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
-async function toggle(task,done){setBusy(true);try{await call('saveTask',token,{...task,done});}catch(e){$('status').textContent=message(e);render();setBusy(false);return;}setBusy(false);await load();}
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
-$('taskForm').onsubmit=async e=>{e.preventDefault();setBusy(true);$('formError').textContent='';try{await call('saveTask',token,{id:editing?.id,revision:editing?.revision,assignee:$('assignee').value,title:$('title').value,note:$('note').value,due:$('due').value,done:editing?.done||false});$('editor').close();}catch(e){$('formError').textContent=message(e);}finally{setBusy(false);}if(!$('editor').open)await load();};
-$('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventListener('cancel',e=>{if(busy)e.preventDefault();});$('showDone').onchange=render;$('refresh').onclick=()=>load();
-function leave(){generation++;clearInterval(timer);token='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
-$('exit').onclick=()=>{call('logout',token).catch(()=>{});leave();};
-if(!validEndpoint()){$('loginButton').disabled=true;$('loginError').textContent='연결 전입니다. team/index.html의 APP_URL에 /exec로 끝나는 웹 앱 배포 주소를 넣어 주세요.';}
-</script></body></html>
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>우리 매장 청소 기록 | 세로</title><meta name="robots" content="noindex"><style>*{box-sizing:border-box}body{margin:0;background:#f5f8f9;color:#19363b;font:16px/1.6 system-ui,sans-serif}main{max-width:440px;margin:12vh auto;padding:32px 24px;background:white;border-radius:16px}a{color:#015562}h1{font-size:26px}label{display:block;font-weight:bold;margin-top:24px}input,button{width:100%;padding:15px;font:inherit;border-radius:8px;margin-top:8px}input{border:1px solid #bcced1;text-transform:uppercase}button{background:#015562;color:white;border:0;font-weight:bold}small{color:#5c6470}#error{color:#a32323}footer{margin-top:24px}</style><main><a href="/">새것처럼, 세로</a><h1>우리 매장 청소 기록</h1><p>장비에 붙어 있는 스티커의 관리번호를 입력해 주세요.</p><form><label for="id">매장 관리번호</label><input id="id" name="id" placeholder="예: S001" maxlength="12" required autocomplete="off" aria-describedby="error"><button>청소 기록 확인</button><p id="error" role="alert"></p></form><small>한 번 조회한 관리번호는 이 브라우저에 저장됩니다.<br>기록 화면의 로그아웃을 누르면 저장된 번호가 삭제됩니다.</small><footer><a href="tel:01027900180">번호 확인 문의 010-2790-0180</a></footer></main><script>
+(() => {
+  const storageKey='sero.ownerNumber.v1';
+  const params=new URLSearchParams(location.search);
+  const valid=id=>/^S\d{3,10}$/.test(id);
+  let saved='';
+  try{saved=String(localStorage.getItem(storageKey)||'').trim().toUpperCase();if(saved&&!valid(saved)){localStorage.removeItem(storageKey);saved='';}}catch{}
+  const explicitChange=params.has('change')||params.has('logged_out');
+  // Switching/logging out must open the form instead of immediately reopening the saved store.
+  if(explicitChange){try{history.replaceState(null,'','/manage/');}catch{}}
+  if(saved&&valid(saved)&&!explicitChange){location.replace('/?id='+encodeURIComponent(saved));return;}
+  if(params.has('logged_out'))document.querySelector('#error').textContent='로그아웃되었습니다. 관리번호를 다시 입력해 주세요.';
+  document.querySelector('form').onsubmit=e=>{
+    e.preventDefault();
+    const id=document.querySelector('input').value.trim().toUpperCase();
+    if(!valid(id)){document.querySelector('#error').textContent='S와 숫자로 된 관리번호를 확인해 주세요. 예: S001';return;}
+    // owner.js stores the number only after the sheet confirms that it exists.
+    location.assign('/?id='+encodeURIComponent(id));
+  };
+})();
+</script></html>
