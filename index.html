@@ -35,6 +35,8 @@
   .info a{color:var(--navy);font-weight:700}
   .pin{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
   .pin-ok{background:#2ecc71}
+  .pin-history{background:#cbd0d6;filter:grayscale(1)}
+  .record-note{font-size:12px;color:var(--sub);margin-top:8px}
   .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-top:10px}
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .legend i{width:14px;height:14px;border-radius:50%;display:inline-block}
@@ -86,8 +88,10 @@
     <div class="count" id="map-status" role="status">지도를 불러오는 중…</div>
     <button id="retry-map" type="button" hidden>지도 다시 불러오기</button>
     <div class="legend">
-      <span><i style="background:#2ecc71"></i>세로 작업 이력이 있는 가게</span>
+      <span>😊 최근 1년 이내 작업 기록</span>
+      <span><span style="filter:grayscale(1)">😊</span> 1년 이상 지난 작업 기록</span>
     </div>
+    <p class="record-note">표정과 색은 작업 기록의 경과 기간을 나타내며, 현재 위생 상태에 대한 평가는 아닙니다. 회색 표시는 최근 작업 기록을 확인해 주세요. 날짜 미등록 기록도 회색으로 표시됩니다.</p>
   </div>
 </section>
 
@@ -213,7 +217,7 @@
     list.innerHTML=ordered.length?ordered.map((r,i)=>{
       const days=daysSince(r["날짜"]), st=state(days);
       const video=safeURL(r["영상링크"]), place=safeURL(r["플레이스링크"]);
-      return `<div class="item" data-i="${i}"><div class="pin ${st.cls}">${st.face}</div><div><b>${esc(r["가게명"])}</b><div class="meta">${esc(r["작업"])}${r["날짜"]?" · "+esc(r["날짜"]):""}${days!==null?" · "+days+"일 전":""}</div><div class="links">${video?`<a href="${video}" target="_blank" rel="noopener">영상 ▶</a>`:""}${place?`<a href="${place}" target="_blank" rel="noopener">가게 보기</a>`:""}</div></div></div>`;
+      return `<div class="item" data-i="${i}"><div class="pin ${st.cls}" role="img" aria-label="${esc(st.label)}" title="${esc(st.label)}">${st.face}</div><div><b>${esc(r["가게명"])}</b><div class="meta">${esc(r["작업"])}${r["날짜"]?" · "+esc(r["날짜"]):""}${days!==null?" · "+days+"일 전":""}</div><div class="links">${video?`<a href="${video}" target="_blank" rel="noopener">영상 ▶</a>`:""}${place?`<a href="${place}" target="_blank" rel="noopener">가게 보기</a>`:""}</div></div></div>`;
     }).join(""):'<p class="lead">아직 기록이 없습니다.</p>';
     [...list.querySelectorAll(".item")].forEach(el=>el.onclick=e=>{if(!e.target.closest("a"))openRow(ordered[el.dataset.i]);});
     const seen=new Set();
@@ -276,8 +280,14 @@
     const d=new Date(+m[1],+m[2]-1,+m[3]); return Math.floor((Date.now()-d)/86400000);
   }
   function state(days){
-    // Public markers identify work history, not the store's current hygiene.
-    return {cls:"pin-ok",face:"✓"};
+    // Owner page keeps its existing behavior. Public colors describe record age only.
+    if(isOwnerPage) return {cls:"pin-ok",face:"✓",label:"청소 작업 기록"};
+    if(days===null || !Number.isFinite(days) || days<0){
+      return {cls:"pin-history",face:"😊",label:"작업 날짜를 확인해 주세요"};
+    }
+    return days>=365
+      ? {cls:"pin-history",face:"😊",label:"1년 이상 지난 작업 기록 · 최근 작업 기록을 확인해 주세요"}
+      : {cls:"pin-ok",face:"😊",label:"최근 1년 이내 청소 작업 기록"};
   }
 
   function ytId(url){
@@ -339,7 +349,7 @@
           const pos=new naver.maps.LatLng(+a.y,+a.x);
           const days=daysSince(row["날짜"]); const st=state(days);
           const marker=new naver.maps.Marker({position:pos,map,title:row["가게명"],
-            icon:{content:`<div class="pin ${st.cls}">${st.face}</div>`,size:new naver.maps.Size(40,40),anchor:new naver.maps.Point(20,20)}});
+            icon:{content:`<div class="pin ${st.cls}" role="img" aria-label="${esc(st.label)}" title="${esc(st.label)}">${st.face}</div>`,size:new naver.maps.Size(40,40),anchor:new naver.maps.Point(20,20)}});
           bounds.extend(pos); ok++;
           const html=`<div class="info"><b>${row["가게명"]||""}</b>
             ${row["작업"]||""}${row["날짜"]?" · "+row["날짜"]:""}<br>
