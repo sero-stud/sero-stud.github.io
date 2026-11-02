@@ -5,7 +5,11 @@
 </style></head><body>
 <header><small>SERO TEAM</small><h1>함께 챙기는 오늘의 할 일</h1><div>세로 팀 업무 관리</div></header>
 <main class="wrap">
-<section id="loginPanel" class="login"><h2>팀 로그인</h2><p class="muted">본인 담당자와 비밀번호로 들어오세요.</p><form id="loginForm"><label class="field"><span>담당자</span><select id="loginUser"><option value="a">담당자 A</option><option value="b">담당자 B</option><option value="c">담당자 C</option></select></label><label class="field"><span>비밀번호</span><input id="pin" type="password" required autocomplete="current-password"></label><p id="loginError" class="error" role="alert"></p><button class="primary" id="loginButton">들어가기</button></form></section>
+<section id="loginPanel" class="login"><h2>팀 로그인</h2><p class="muted">본인 담당자와 비밀번호로 들어오세요.</p><form id="loginForm"><label class="field"><span>담당자</span><select id="loginUser">
+<option value="a">민세한</option>
+<option value="b">민경욱</option>
+<option value="c">김진솔</option>
+</select></label><label class="field"><span>비밀번호</span><input id="pin" type="password" required autocomplete="current-password"></label><p id="loginError" class="error" role="alert"></p><button class="primary" id="loginButton">들어가기</button></form></section>
 <section id="app" hidden><div class="toolbar"><strong id="who"></strong><span class="grow"></span><label><input type="checkbox" id="showDone"> 완료한 일 보기</label><button id="refresh">새로고침</button><button id="exit">로그아웃</button></div><div id="status" role="status" aria-live="polite"></div><div class="board" id="board"></div></section>
 </main>
 <dialog id="editor"><form id="taskForm"><h2 id="editorTitle">할 일 추가</h2><label class="field"><span>담당자</span><select id="assignee"></select></label><label class="field"><span>할 일</span><input id="title" required maxlength="160" placeholder="예: ○○카페 견적 보내기"></label><label class="field"><span>마감일 · 선택</span><input id="due" type="date"></label><label class="field"><span>메모 · 선택</span><textarea id="note" maxlength="3000" placeholder="함께 알아야 할 내용을 적어 주세요."></textarea></label><p id="formError" class="error" role="alert"></p><div class="actions"><button type="button" id="cancel">취소</button><button class="primary" id="save">저장</button></div></form></dialog>
