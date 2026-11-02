@@ -11,7 +11,7 @@
 <dialog id="editor"><form id="taskForm"><h2 id="editorTitle">할 일 추가</h2><label class="field"><span>담당자</span><select id="assignee"></select></label><label class="field"><span>할 일</span><input id="title" required maxlength="160" placeholder="예: ○○카페 견적 보내기"></label><label class="field"><span>마감일 · 선택</span><input id="due" type="date"></label><label class="field"><span>메모 · 선택</span><textarea id="note" maxlength="3000" placeholder="함께 알아야 할 내용을 적어 주세요."></textarea></label><p id="formError" class="error" role="alert"></p><div class="actions"><button type="button" id="cancel">취소</button><button class="primary" id="save">저장</button></div></form></dialog>
 <script>
 // 배포 → 웹 앱에서 복사한 /exec 주소를 작은따옴표 안에 넣으세요.
-const APP_URL = '';
+const APP_URL = 'https://script.google.com/macros/s/AKfycbwIhs6s4HrX8fuwnYUd1mXwTd9DeToelOwcnz3eI7xT6H-UGX6D64O6WFO516tYjD8/exec';
 let token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0;
 function validEndpoint(){try{const u=new URL(APP_URL);return u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname)&&!u.search&&!u.hash;}catch{return false;}}
 const $=id=>document.getElementById(id);
