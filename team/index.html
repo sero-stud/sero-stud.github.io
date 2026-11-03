@@ -24,7 +24,7 @@
 </style></head><body>
 <header><small>SERO TEAM</small><h1>함께 챙기는 오늘의 할 일</h1><div>세로 팀 업무 관리</div></header>
 <main class="wrap">
-<section id="loginPanel" class="login"><h2>팀 로그인</h2><p class="muted">본인 담당자와 비밀번호로 들어오세요.</p><form id="loginForm"><label class="field"><span>담당자</span><select id="loginUser">
+<section id="loginPanel" class="login"><h2>팀 로그인</h2><p class="muted">본인 담당자와 비밀번호로 들어오세요. 이 브라우저에서 로그인이 유지됩니다.</p><form id="loginForm"><label class="field"><span>담당자</span><select id="loginUser">
 <option value="a">민세한</option>
 <option value="b">민경욱</option>
 <option value="c">김진솔</option>
@@ -35,7 +35,7 @@
 <script>
 // 배포 → 웹 앱에서 복사한 /exec 주소를 작은따옴표 안에 넣으세요.
 const APP_URL = 'https://script.google.com/macros/s/AKfycbwIhs6s4HrX8fuwnYUd1mXwTd9DeToelOwcnz3eI7xT6H-UGX6D64O6WFO516tYjD8/exec';
-let currentUserId='',token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0,boardIncludesComments=false,commentChangeVersion=0,taskChangeVersion=0;
+let currentUserId='',token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0,boardIncludesComments=false,commentChangeVersion=0,taskChangeVersion=0,sessionVerified=false,sessionExpiresAt=0,snapshotTime=0,suppressCacheClear=false;
 function validEndpoint(){try{const u=new URL(APP_URL);return u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname)&&!u.search&&!u.hash;}catch{return false;}}
 const $=id=>document.getElementById(id);
 async function call(name,...args){
@@ -48,7 +48,7 @@ async function call(name,...args){
    const res=await fetch(APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),credentials:'omit',redirect:'follow',cache:'no-store',signal:controller.signal});
    if(!res.ok)throw new Error('서버 응답 오류입니다. 웹 앱 배포 설정을 확인하세요.');
    let result;try{result=JSON.parse(await res.text());}catch{throw new Error('서버 연결을 확인하세요. 배포는 실행 사용자 ‘나’, 액세스 ‘모든 사용자’로 설정해야 합니다.');}
-   if(!result.ok){const err=new Error(result.error||'요청을 처리하지 못했습니다.');err.code=result.code;throw err;}
+   if(!result.ok){if(result.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}const err=new Error(result.error||'요청을 처리하지 못했습니다.');err.code=result.code;throw err;}
    return result.data;
  }catch(err){
    if(err.name==='AbortError'||err instanceof TypeError)throw new Error(['saveTask','addComment','deleteComment'].includes(name)?'저장 결과를 확인하지 못했습니다. 취소 후 새로고침으로 반영 여부를 확인하고 다시 시도하세요.':'서버에 연결하지 못했습니다. 인터넷과 웹 앱 배포 주소·권한을 확인하세요.');
@@ -57,16 +57,17 @@ async function call(name,...args){
 }
 function message(e){return e&&e.message?e.message:String(e);}
 function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
-function setBusy(v){busy=v;$('save').disabled=v;$('refresh').disabled=v;document.querySelectorAll('#board button,#board input').forEach(e=>e.disabled=v||(e.type==='checkbox'&&e.dataset.assignee!==currentUserId));}
+function setBusy(v){busy=v;$('save').disabled=v||!sessionVerified;$('refresh').disabled=v;document.querySelectorAll('#board button,#board input').forEach(e=>e.disabled=v||!sessionVerified||(e.type==='checkbox'&&e.dataset.assignee!==currentUserId));}
 async function load(quiet=false){
  if(!token||busy||loading)return;
  loading=true;const epoch=generation,commentVersion=commentChangeVersion,taskVersion=taskChangeVersion;
  if(!quiet)$('status').textContent='공유 할 일을 불러오는 중…';
- try{const data=await call('getBoard',token);if(epoch!==generation)return;acceptBoard(data,commentVersion,taskVersion);if(!$('editor').open&&!busy)render();$('status').textContent='최근 확인 '+new Date().toLocaleTimeString('ko-KR')+' · 30초마다 확인';}
- catch(e){$('status').textContent=message(e);if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}}finally{loading=false;}
+ try{const data=await call('getBoard',token);if(epoch!==generation)return;sessionVerified=true;acceptBoard(data,commentVersion,taskVersion);if(!$('editor').open&&!busy)render();markUpdated();}
+ catch(e){if(epoch!==generation)return;$('status').textContent=(sessionVerified?'':'저장된 목록입니다 · 최신 확인 실패 · 읽기 전용. ')+message(e);if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}}finally{loading=false;}
 }
 
 function markUpdated(){
+ snapshotTime=Date.now();persistBrowserState();
  $('status').textContent='최근 확인 '+new Date().toLocaleTimeString('ko-KR')+' · 30초마다 확인';
 }
 function acceptBoard(data,version,taskVersion=taskChangeVersion){
@@ -94,27 +95,37 @@ function render(){
   const col=node('section',undefined,'column'),head=node('div',undefined,'column-head'),info=node('div');
   info.append(node('h2',person.name),node('div',`남은 일 ${all.filter(t=>!t.done).length} · 완료 ${all.filter(t=>t.done).length}`,'count'));head.append(info);col.append(head);
   visible.forEach(task=>{
-   const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.dataset.assignee=task.assignee;check.disabled=busy||task.assignee!==currentUserId;check.title=task.assignee===currentUserId?'완료 체크 / 해제':'담당자 본인만 완료 체크 / 해제할 수 있어요';check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
+   const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.dataset.assignee=task.assignee;check.disabled=busy||!sessionVerified||task.assignee!==currentUserId;check.title=task.assignee===currentUserId?'완료 체크 / 해제':'담당자 본인만 완료 체크 / 해제할 수 있어요';check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
    card.append(node('div',task.createdBy?'등록: '+teamNameV3(task.createdBy):'등록: 기록 없음','task-author'));
    if(task.note)card.append(node('p',task.note));
-   const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);appendTaskExtras(card,task);col.append(card);
+   const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.disabled=busy||!sessionVerified;edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);appendTaskExtras(card,task);col.append(card);
   });
   if(!visible.length)col.append(node('div','등록된 할 일이 없어요.','empty'));
-  const add=node('button','+ 할 일 추가','add');add.onclick=()=>openEditor(person.id);col.append(add);$('board').append(col);
+  const add=node('button','+ 할 일 추가','add');add.disabled=busy||!sessionVerified;add.onclick=()=>openEditor(person.id);col.append(add);$('board').append(col);
  });
- if(!boardIncludesComments)void refreshVisibleComments();
+ if(sessionVerified&&!boardIncludesComments)void refreshVisibleComments();
 }
-function openEditor(id,task=null){editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
+function openEditor(id,task=null){if(!requireVerified())return;editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
 async function toggle(task,done){
+ if(!requireVerified())return;
  if(task.assignee!==currentUserId){$('status').textContent='완료 체크와 해제는 담당자 본인만 할 수 있어요.';render();return;}
  const epoch=generation;taskChangeVersion++;setBusy(true);$('status').textContent='완료 상태를 저장하는 중…';
  try{const result=await call('saveTask',token,{...task,done});if(epoch!==generation)return;
  setBusy(false);if(result.task){acceptSavedTask(result.task);render();markUpdated();}else await load();}
  catch(e){if(epoch!==generation)return;setBusy(false);render();$('status').textContent=message(e);}
 } 
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;currentUserId=r.user.id;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;if(r.board){acceptBoard(r.board,commentChangeVersion);render();markUpdated();}else await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
+$('loginForm').onsubmit=async e=>{
+ e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';
+ try{
+  const r=await call('login',$('loginUser').value,$('pin').value);
+  token=r.token;currentUserId=r.user.id;sessionVerified=true;sessionExpiresAt=Date.now()+6*60*60*1000;
+  $('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;
+  if(r.board){acceptBoard(r.board,commentChangeVersion);render();markUpdated();}else await load();
+  persistBrowserState();startAutoRefresh();
+ }catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}
+};
 $('taskForm').onsubmit=async e=>{
- e.preventDefault();const epoch=generation;taskChangeVersion++;setBusy(true);$('formError').textContent='';$('save').textContent='저장 중…';
+ e.preventDefault();if(!requireVerified())return;const epoch=generation;taskChangeVersion++;setBusy(true);$('formError').textContent='';$('save').textContent='저장 중…';
  try{const result=await call('saveTask',token,{id:editing?.id,revision:editing?.revision,assignee:$('assignee').value,title:$('title').value,note:$('note').value,due:$('due').value,done:editing?.done||false});
  if(epoch!==generation)return;$('editor').close();setBusy(false);
  if(result.task){acceptSavedTask(result.task);render();markUpdated();}else await load();}
@@ -122,7 +133,7 @@ $('taskForm').onsubmit=async e=>{
  finally{if(epoch===generation){setBusy(false);$('save').textContent='저장';}}
 };
 $('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventListener('cancel',e=>{if(busy)e.preventDefault();});$('showDone').onchange=render;$('refresh').onclick=()=>load();
-function leave(){generation++;clearInterval(timer);token='';currentUserId='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
+function leave(){clearBrowserState();sessionVerified=false;sessionExpiresAt=0;snapshotTime=0;generation++;clearInterval(timer);token='';currentUserId='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
 $('exit').onclick=()=>{call('logout',token).catch(()=>{});leave();};
 if(!validEndpoint()){$('loginButton').disabled=true;$('loginError').textContent='연결 전입니다. team/index.html의 APP_URL에 /exec로 끝나는 웹 앱 배포 주소를 넣어 주세요.';}
 // 카드 안에서 바로 읽고 작성하는 댓글
@@ -156,8 +167,8 @@ function paintTaskComments(id){
   const s=commentStates.get(id);if(!s?.view)return;
   const v=s.view;v.list.replaceChildren();v.label.textContent=s.loaded?'댓글 '+s.items.length:'댓글';
   v.error.textContent=s.error;
-  v.refresh.disabled=s.loading||commentPosting.has(id);
-  v.send.disabled=commentPosting.has(id);v.input.disabled=commentPosting.has(id);
+  v.refresh.disabled=!sessionVerified||s.loading||commentPosting.has(id);
+  v.send.disabled=!sessionVerified||commentPosting.has(id);v.input.disabled=!sessionVerified||commentPosting.has(id);
   v.send.textContent=commentPosting.has(id)?'등록 중…':'댓글 등록';
   if(!s.loaded)v.list.append(node('p',s.loading?'댓글 불러오는 중…':'댓글을 불러오지 못했어요.','comment-empty'));
   else if(!s.items.length)v.list.append(node('p','아직 댓글이 없어요.','comment-empty'));
@@ -172,7 +183,7 @@ function paintTaskComments(id){
     item.append(meta,node('p',c.text,'comment-body'));
     if(c.author===currentUserId){
       const actions=node('div',undefined,'comment-delete-actions'),del=node('button','삭제','comment-delete');
-      del.type='button';del.disabled=commentPosting.has(id);
+      del.type='button';del.disabled=!sessionVerified||commentPosting.has(id);
       del.setAttribute('aria-label',teamNameV3(c.author)+' 댓글 삭제');
       del.onclick=()=>deleteTaskComment(id,c.id);actions.append(del);item.append(actions);
     }
@@ -183,13 +194,13 @@ function paintTaskComments(id){
   }
 }
 async function refreshTaskComments(id){
-  if(!token)return;
+  if(!token||!sessionVerified)return;
   const s=commentState(id);if(s.loading)return;
   const epoch=generation,version=commentChangeVersion;s.loading=true;s.error='';paintTaskComments(id);
   try{
     const data=await call('getComments',token,{taskId:id});
     if(epoch!==generation)return;
-    if(version===commentChangeVersion){s.items=data.comments.filter(c=>!c.deleted&&!s.deletedIds.has(c.id));s.loaded=true;}
+    if(version===commentChangeVersion){s.items=data.comments.filter(c=>!c.deleted&&!s.deletedIds.has(c.id));s.loaded=true;persistBrowserState();}
   }catch(e){
     if(epoch!==generation)return;
     s.error=message(e);
@@ -205,6 +216,7 @@ async function refreshVisibleComments(){
   await Promise.all([worker(),worker()]);
 }
 async function submitTaskComment(id){
+  if(!requireVerified())return;
   const s=commentState(id);if(commentPosting.has(id)||!token)return;
   const text=s.draft.trim();if(!text)return;
   if(!s.pending||s.pending.text!==text)s.pending={taskId:id,text,requestId:crypto.randomUUID()};
@@ -221,13 +233,14 @@ async function submitTaskComment(id){
     else await refreshTaskComments(id);
   }catch(e){
     if(epoch!==generation)return;
-    s.error=message(e)+' 새로고침으로 등록 여부를 확인한 후 다시 시도하세요.';
+    s.error=message(e)+' 새로고침으로 등록 여부를 확인한 후 다시 시도하세요.';if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}
   }finally{
-    if(epoch===generation){commentPosting.delete(id);paintTaskComments(id);}
+    if(epoch===generation){commentPosting.delete(id);paintTaskComments(id);persistBrowserState();}
   }
 }
 
 async function deleteTaskComment(taskId,id){
+  if(!requireVerified())return;
   if(!token||commentPosting.has(taskId))return;
   if(!confirm('이 댓글을 삭제할까요? 화면에서 숨겨지며 시트 기록은 남습니다.'))return;
   const s=commentState(taskId),epoch=generation;
@@ -244,7 +257,7 @@ async function deleteTaskComment(taskId,id){
     s.error=message(e)+' 새로고침으로 삭제 여부를 확인하세요.';
     if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}
   }finally{
-    if(epoch===generation){commentPosting.delete(taskId);paintTaskComments(taskId);}
+    if(epoch===generation){commentPosting.delete(taskId);paintTaskComments(taskId);persistBrowserState();}
   }
 }
 
@@ -252,4 +265,62 @@ const leaveWithInlineComments = leave;
 leave = function(){
   boardIncludesComments=false;commentChangeVersion++;taskChangeVersion++;commentStates.clear();commentPosting.clear();$('editor').close();leaveWithInlineComments();
 };
+
+// 비밀번호와 입력 중인 댓글은 저장하지 않습니다.
+const BROWSER_STATE_KEY='sero-team-browser-v1:'+APP_URL;
+function clearBrowserState(){
+ if(suppressCacheClear)return;
+ try{localStorage.removeItem(BROWSER_STATE_KEY);}catch{}
+}
+function persistBrowserState(){
+ if(!token||!sessionVerified||!sessionExpiresAt)return;
+ if(Date.now()>=sessionExpiresAt){clearBrowserState();return;}
+ try{
+  const comments=[];
+  for(const [taskId,state] of commentStates){
+   for(const c of state.items){if(!c.deleted&&!state.deletedIds.has(c.id))comments.push({...c,taskId});}
+  }
+  const user=team.find(u=>u.id===currentUserId)||{id:currentUserId,name:$('who').textContent.replace(/님$/,'')};
+  const saved={version:1,token,user,expiresAt:sessionExpiresAt,savedAt:snapshotTime||Date.now(),board:{team,tasks,comments}};
+  const json=JSON.stringify(saved);
+  if(json.length>1500000){clearBrowserState();return;}
+  localStorage.setItem(BROWSER_STATE_KEY,json);
+ }catch{clearBrowserState();}
+}
+function requireVerified(){
+ if(token&&sessionExpiresAt&&Date.now()>=sessionExpiresAt){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';return false;}
+ if(!sessionVerified){$('status').textContent='저장된 목록입니다. 서버에서 로그인을 확인한 뒤 수정할 수 있어요. 새로고침을 눌러 주세요.';return false;}
+ return true;
+}
+function startAutoRefresh(){
+ clearInterval(timer);
+ timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);
+}
+function restoreBrowserState(){
+ let saved;
+ try{
+  const json=localStorage.getItem(BROWSER_STATE_KEY);if(!json)return;
+  if(json.length>1500000)throw new Error('cache size');
+  saved=JSON.parse(json);
+  if(saved.version!==1||typeof saved.token!=='string'||saved.token.length<32||saved.token.length>512||!saved.user||!['a','b','c'].includes(saved.user.id)||typeof saved.expiresAt!=='number'||saved.expiresAt<=Date.now()||saved.expiresAt>Date.now()+6*60*60*1000||!Array.isArray(saved.board?.team)||!Array.isArray(saved.board?.tasks)||!Array.isArray(saved.board?.comments))throw new Error('cache shape');
+  token=saved.token;currentUserId=saved.user.id;sessionExpiresAt=saved.expiresAt;sessionVerified=false;snapshotTime=Number(saved.savedAt)||0;
+  acceptBoard(saved.board,commentChangeVersion);$('who').textContent=String(saved.user.name||'담당자')+'님';
+  $('loginPanel').hidden=true;$('app').hidden=false;render();
+  const time=new Date(snapshotTime);
+  $('status').textContent='저장된 목록 ('+time.toLocaleString('ko-KR')+') · 최신 내용 확인 중…';
+ }catch{
+  clearBrowserState();token='';currentUserId='';sessionVerified=false;sessionExpiresAt=0;tasks=[];team=[];commentStates.clear();$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;return;
+ }
+ startAutoRefresh();void load(true);
+}
+window.addEventListener('storage',e=>{
+ if(e.key!==BROWSER_STATE_KEY&&e.key!==null)return;
+ let next;try{next=e.newValue?JSON.parse(e.newValue):null;}catch{next=null;}
+ if(token&&(!next||next.token!==token)){
+  suppressCacheClear=true;try{leave();}finally{suppressCacheClear=false;}
+  $('loginError').textContent='다른 탭에서 로그아웃하거나 계정이 변경되었습니다. 다시 로그인하세요.';
+ }
+});
+restoreBrowserState();
+
 </script></body></html>
