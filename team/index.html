@@ -35,13 +35,13 @@
 <script>
 // 배포 → 웹 앱에서 복사한 /exec 주소를 작은따옴표 안에 넣으세요.
 const APP_URL = 'https://script.google.com/macros/s/AKfycbwIhs6s4HrX8fuwnYUd1mXwTd9DeToelOwcnz3eI7xT6H-UGX6D64O6WFO516tYjD8/exec';
-let currentUserId='',token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0;
+let currentUserId='',token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0,boardIncludesComments=false,commentChangeVersion=0,taskChangeVersion=0;
 function validEndpoint(){try{const u=new URL(APP_URL);return u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname)&&!u.search&&!u.hash;}catch{return false;}}
 const $=id=>document.getElementById(id);
 async function call(name,...args){
  if(!validEndpoint())throw new Error('관리자가 team/index.html의 APP_URL에 웹 앱 배포 주소를 먼저 넣어 주세요.');
  const payload={action:name};
- if(name==='login'){payload.id=args[0];payload.pin=args[1];}
+ if(name==='login'){payload.id=args[0];payload.pin=args[1];payload.includeBoard=true;}
  else{payload.token=args[0];if(['saveTask','getComments','addComment','deleteComment'].includes(name))payload.task=args[1];}
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try{
@@ -60,11 +60,30 @@ function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefi
 function setBusy(v){busy=v;$('save').disabled=v;$('refresh').disabled=v;document.querySelectorAll('#board button,#board input').forEach(e=>e.disabled=v||(e.type==='checkbox'&&e.dataset.assignee!==currentUserId));}
 async function load(quiet=false){
  if(!token||busy||loading)return;
- loading=true;const epoch=generation;
+ loading=true;const epoch=generation,commentVersion=commentChangeVersion,taskVersion=taskChangeVersion;
  if(!quiet)$('status').textContent='공유 할 일을 불러오는 중…';
- try{const data=await call('getBoard',token);if(epoch!==generation)return;team=data.team;tasks=data.tasks;if(!$('editor').open&&!busy)render();$('status').textContent='최근 확인 '+new Date().toLocaleTimeString('ko-KR')+' · 30초마다 확인';}
+ try{const data=await call('getBoard',token);if(epoch!==generation)return;acceptBoard(data,commentVersion,taskVersion);if(!$('editor').open&&!busy)render();$('status').textContent='최근 확인 '+new Date().toLocaleTimeString('ko-KR')+' · 30초마다 확인';}
  catch(e){$('status').textContent=message(e);if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}}finally{loading=false;}
 }
+
+function markUpdated(){
+ $('status').textContent='최근 확인 '+new Date().toLocaleTimeString('ko-KR')+' · 30초마다 확인';
+}
+function acceptBoard(data,version,taskVersion=taskChangeVersion){
+ team=data.team;if(taskVersion===taskChangeVersion)tasks=data.tasks;boardIncludesComments=Array.isArray(data.comments);
+ if(boardIncludesComments&&version===commentChangeVersion){
+   const grouped=new Map();
+   for(const c of data.comments){if(c.deleted)continue;if(!grouped.has(c.taskId))grouped.set(c.taskId,[]);grouped.get(c.taskId).push(c);}
+   for(const t of tasks){const state=commentState(t.id);state.items=(grouped.get(t.id)||[]).filter(c=>!state.deletedIds.has(c.id));state.loaded=true;state.error='';paintTaskComments(t.id);}
+ }
+}
+function acceptSavedTask(task){
+ taskChangeVersion++;
+ const i=tasks.findIndex(t=>t.id===task.id);
+ if(i<0)tasks.push(task);else tasks[i]=task;
+ const state=commentState(task.id);if(!state.loaded){state.loaded=true;state.items=[];}
+}
+
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function render(){
  if(commentPosting.size||document.activeElement?.closest?.('.comment-compose'))return;
@@ -83,12 +102,25 @@ function render(){
   if(!visible.length)col.append(node('div','등록된 할 일이 없어요.','empty'));
   const add=node('button','+ 할 일 추가','add');add.onclick=()=>openEditor(person.id);col.append(add);$('board').append(col);
  });
- void refreshVisibleComments();
+ if(!boardIncludesComments)void refreshVisibleComments();
 }
 function openEditor(id,task=null){editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
-async function toggle(task,done){if(task.assignee!==currentUserId){$('status').textContent='완료 체크와 해제는 담당자 본인만 할 수 있어요.';render();return;}setBusy(true);try{await call('saveTask',token,{...task,done});}catch(e){$('status').textContent=message(e);render();setBusy(false);return;}setBusy(false);await load();}
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;currentUserId=r.user.id;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
-$('taskForm').onsubmit=async e=>{e.preventDefault();setBusy(true);$('formError').textContent='';try{await call('saveTask',token,{id:editing?.id,revision:editing?.revision,assignee:$('assignee').value,title:$('title').value,note:$('note').value,due:$('due').value,done:editing?.done||false});$('editor').close();}catch(e){$('formError').textContent=message(e);}finally{setBusy(false);}if(!$('editor').open)await load();};
+async function toggle(task,done){
+ if(task.assignee!==currentUserId){$('status').textContent='완료 체크와 해제는 담당자 본인만 할 수 있어요.';render();return;}
+ const epoch=generation;taskChangeVersion++;setBusy(true);$('status').textContent='완료 상태를 저장하는 중…';
+ try{const result=await call('saveTask',token,{...task,done});if(epoch!==generation)return;
+ setBusy(false);if(result.task){acceptSavedTask(result.task);render();markUpdated();}else await load();}
+ catch(e){if(epoch!==generation)return;setBusy(false);render();$('status').textContent=message(e);}
+} 
+$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;currentUserId=r.user.id;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;if(r.board){acceptBoard(r.board,commentChangeVersion);render();markUpdated();}else await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
+$('taskForm').onsubmit=async e=>{
+ e.preventDefault();const epoch=generation;taskChangeVersion++;setBusy(true);$('formError').textContent='';$('save').textContent='저장 중…';
+ try{const result=await call('saveTask',token,{id:editing?.id,revision:editing?.revision,assignee:$('assignee').value,title:$('title').value,note:$('note').value,due:$('due').value,done:editing?.done||false});
+ if(epoch!==generation)return;$('editor').close();setBusy(false);
+ if(result.task){acceptSavedTask(result.task);render();markUpdated();}else await load();}
+ catch(e){if(epoch===generation)$('formError').textContent=message(e);}
+ finally{if(epoch===generation){setBusy(false);$('save').textContent='저장';}}
+};
 $('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventListener('cancel',e=>{if(busy)e.preventDefault();});$('showDone').onchange=render;$('refresh').onclick=()=>load();
 function leave(){generation++;clearInterval(timer);token='';currentUserId='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
 $('exit').onclick=()=>{call('logout',token).catch(()=>{});leave();};
@@ -153,11 +185,11 @@ function paintTaskComments(id){
 async function refreshTaskComments(id){
   if(!token)return;
   const s=commentState(id);if(s.loading)return;
-  const epoch=generation;s.loading=true;s.error='';paintTaskComments(id);
+  const epoch=generation,version=commentChangeVersion;s.loading=true;s.error='';paintTaskComments(id);
   try{
     const data=await call('getComments',token,{taskId:id});
     if(epoch!==generation)return;
-    s.items=data.comments.filter(c=>!c.deleted&&!s.deletedIds.has(c.id));s.loaded=true;
+    if(version===commentChangeVersion){s.items=data.comments.filter(c=>!c.deleted&&!s.deletedIds.has(c.id));s.loaded=true;}
   }catch(e){
     if(epoch!==generation)return;
     s.error=message(e);
@@ -176,13 +208,16 @@ async function submitTaskComment(id){
   const s=commentState(id);if(commentPosting.has(id)||!token)return;
   const text=s.draft.trim();if(!text)return;
   if(!s.pending||s.pending.text!==text)s.pending={taskId:id,text,requestId:crypto.randomUUID()};
-  const epoch=generation;commentPosting.add(id);s.error='';paintTaskComments(id);
+  const epoch=generation;commentChangeVersion++;commentPosting.add(id);s.error='';paintTaskComments(id);
   try{
-    await call('addComment',token,s.pending);
+    const result=await call('addComment',token,s.pending);
     if(epoch!==generation)return;
     s.draft='';s.pending=null;if(s.view)s.view.input.value='';
     // 조회 중인 응답이 있으면 끝난 뒤 새 댓글을 다시 읽습니다.
-    if(s.loading){s.refreshAfterLoad=true;}
+    if(Object.prototype.hasOwnProperty.call(result,'comment')){
+      if(result.comment&&!s.items.some(c=>c.id===result.comment.id))s.items.push(result.comment);
+      s.loaded=true;commentChangeVersion++;
+    }else if(s.loading){s.refreshAfterLoad=true;}
     else await refreshTaskComments(id);
   }catch(e){
     if(epoch!==generation)return;
@@ -196,12 +231,13 @@ async function deleteTaskComment(taskId,id){
   if(!token||commentPosting.has(taskId))return;
   if(!confirm('이 댓글을 삭제할까요? 화면에서 숨겨지며 시트 기록은 남습니다.'))return;
   const s=commentState(taskId),epoch=generation;
-  commentPosting.add(taskId);s.error='';paintTaskComments(taskId);
+  commentChangeVersion++;commentPosting.add(taskId);s.error='';paintTaskComments(taskId);
   try{
-    await call('deleteComment',token,{taskId,id});
+    const result=await call('deleteComment',token,{taskId,id});
     if(epoch!==generation)return;
     s.deletedIds.add(id);s.items=s.items.filter(c=>c.id!==id);
-    if(s.loading)s.refreshAfterLoad=true;
+    if(result.deletedCommentId===id){commentChangeVersion++;}
+    else if(s.loading)s.refreshAfterLoad=true;
     else await refreshTaskComments(taskId);
   }catch(e){
     if(epoch!==generation)return;
@@ -214,6 +250,6 @@ async function deleteTaskComment(taskId,id){
 
 const leaveWithInlineComments = leave;
 leave = function(){
-  commentStates.clear();commentPosting.clear();$('editor').close();leaveWithInlineComments();
+  boardIncludesComments=false;commentChangeVersion++;taskChangeVersion++;commentStates.clear();commentPosting.clear();$('editor').close();leaveWithInlineComments();
 };
 </script></body></html>
