@@ -1,189 +1,419 @@
-<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>세로 · 팀 업무</title>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세로 — 에어컨·제빙기 청소, 작업 영상으로 남겨드립니다</title>
+<meta name="description" content="서울·경기 에어컨, 제빙기 분해 청소. 작업 과정을 영상으로 남기고 가게 홍보까지 해드립니다.">
 <style>
-:root{--navy:#163060;--muted:#68768a;--border:#e1e6ef}*{box-sizing:border-box}body{margin:0;background:#f3f5f9;color:#18263b;font:15px/1.5 system-ui,-apple-system,'Malgun Gothic',sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--border);background:white;border-radius:10px;padding:10px 15px;color:var(--navy)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #84b3ff;outline-offset:2px}.primary{background:var(--navy);color:white;border-color:var(--navy)}header{background:var(--navy);color:white;padding:25px max(20px,calc((100vw - 1200px)/2))}header small{letter-spacing:2px;color:#c0d1ec}h1{font-size:25px;margin:5px 0}.wrap{max-width:1240px;padding:24px 20px;margin:auto}.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:22px}.toolbar .grow{flex:1}.muted{color:var(--muted)}#status{min-height:24px;font-size:13px;margin-bottom:12px}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.column{background:#eaf0f7;border:1px solid #dce4f0;border-radius:16px;padding:17px;align-self:start}.column h2{font-size:18px;margin:0}.column-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.count{font-size:12px;color:var(--muted);margin-top:4px}.task{padding:17px;background:white;border:1px solid var(--border);border-radius:12px;margin-bottom:11px;box-shadow:0 2px 4px #16306004}.task-top{display:flex;gap:10px;align-items:flex-start}.task input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--navy);margin-top:3px}.task strong{overflow-wrap:anywhere}.task p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:var(--muted);margin:10px 0}.task footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)}.task footer button{font-size:12px;padding:4px 9px}.done strong{text-decoration:line-through;color:var(--muted)}.late{color:#bd382d!important}.empty{text-align:center;padding:35px 10px;color:var(--muted);font-size:13px}.add{width:100%;background:transparent;border:1px dashed #aebdd0}dialog{border:0;border-radius:18px;width:min(460px,calc(100vw - 32px));padding:25px;box-shadow:0 20px 80px #14284833}dialog::backdrop{background:#12244066}dialog h2{margin:0 0 18px;font-size:21px}label.field{display:block;margin:13px 0}label.field span{display:block;font-size:13px;margin-bottom:6px}input:not([type=checkbox]),select,textarea{width:100%;padding:11px 12px;border:1px solid #cbd5e2;border-radius:9px;background:white;color:#18263b}textarea{resize:vertical;min-height:100px}.actions{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}.login{max-width:420px;background:white;border:1px solid var(--border);padding:28px;border-radius:18px;margin:45px auto}.login h2{margin-top:0}.error{color:#b12c23;font-size:13px;white-space:pre-wrap}[hidden]{display:none!important}@media(max-width:760px){.board{grid-template-columns:1fr}.wrap{padding:18px 14px}header{padding:20px}.toolbar{gap:8px}.column{padding:15px}}
+  :root{--navy:#163060;--ink:#1d1d1f;--sub:#5c6470;--line:#e6e8ec;--bg:#fff;--green:#03c75a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;color:var(--ink);background:var(--bg);line-height:1.5}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+  header{background:var(--navy);color:#fff;padding:40px 0 32px}
+  header h1{font-size:30px;letter-spacing:-0.5px}
+  header h1 small{display:block;font-size:14px;font-weight:500;opacity:.8;margin-top:4px}
+  header p{margin:14px 0 20px;font-size:16px;opacity:.92;max-width:560px}
+  .btns{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{display:inline-block;padding:12px 18px;border-radius:8px;font-weight:700;text-decoration:none;font-size:15px}
+  .btn-green{background:var(--green);color:#fff}
+  .btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.35)}
+  section{padding:32px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:20px;margin-bottom:6px}
+  .lead{color:var(--sub);font-size:14px;margin-bottom:16px}
+  #map{width:100%;height:420px;border-radius:12px;border:1px solid var(--line);background:#f3f4f6}
+  .count{font-size:13px;color:var(--sub);margin-top:8px}
+  .videos{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .video{aspect-ratio:9/16;border-radius:10px;overflow:hidden;background:#000}
+  .video iframe{width:100%;height:100%;border:0}
+  .video-actions{display:flex;justify-content:center;margin-top:20px}
+  .btn-video-all{background:var(--navy);color:#fff;text-align:center}
+  .btn-video-all:hover{opacity:.9}
+  .btn-video-all:focus-visible{outline:3px solid var(--navy);outline-offset:4px}
+  .info{font-size:13px;line-height:1.45;padding:10px 12px;min-width:200px}
+  .info b{font-size:14px;display:block;margin-bottom:2px}
+  .info a{color:var(--navy);font-weight:700}
+  .pin{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+  .pin-ok{background:#2ecc71}
+  .pin-history{background:#cbd0d6;filter:grayscale(1)}
+  .record-note{font-size:12px;color:var(--sub);margin-top:8px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-top:10px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:14px;height:14px;border-radius:50%;display:inline-block}
+  .tools{display:flex;gap:8px;margin-bottom:10px}
+  .tools input{flex:1;padding:11px 12px;border:1px solid var(--line);border-radius:8px;font-size:15px}
+  .tools button{padding:11px 14px;border:0;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;font-size:14px;white-space:nowrap}
+  .results{font-size:14px;margin-top:8px}
+  .results div{padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .results div span{color:var(--sub);font-size:12px;margin-left:6px}
+  .me{width:18px;height:18px;border-radius:50%;background:#2d7cf6;border:3px solid #fff;box-shadow:0 0 0 4px rgba(45,124,246,.3)}
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  .item{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#fff}
+  .item .pin{flex:none;width:36px;height:36px;font-size:20px;border-width:2px}
+  .item b{display:block;font-size:15px}
+  .item .meta{font-size:13px;color:var(--sub)}
+  .item .links{margin-top:4px;font-size:13px}
+  .item .links a{color:var(--navy);font-weight:700;margin-right:10px}
+  #retry-data,#retry-map{margin-top:8px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--navy);cursor:pointer}
+  footer{padding:28px 0 40px;font-size:13px;color:var(--sub)}
+  footer a{color:var(--sub)}
+  @media (max-width:600px){header h1{font-size:26px} #map{height:340px}}
+</style>
+</head>
+<body>
 
-.task-author{font-size:12px;color:var(--muted);margin:8px 0 10px 30px}
-.task .inline-comments{border-top:1px solid var(--border);margin-top:15px;padding-top:12px}
-.comment-heading,.comment-meta,.comment-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.comment-heading{font-size:13px;margin-bottom:8px}
-.comment-heading button,.comment-more{padding:4px 8px;font-size:12px}
-.inline-comment{padding:9px 0;border-bottom:1px solid #eef1f6}
-.comment-meta{font-size:12px;flex-wrap:wrap}
-.comment-meta time{color:var(--muted);font-size:11px}
-.task .comment-body{color:#24364f;margin:5px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
-.task .comment-empty{font-size:12px;margin:8px 0 12px;color:var(--muted)}
-.comment-compose{margin-top:12px}
-.comment-compose textarea{min-height:62px;font-size:13px}
-.comment-actions{justify-content:flex-end;margin-top:6px}
-.comment-actions button{padding:7px 11px;font-size:12px}
-.inline-comments .error{margin-top:8px}
-.done .comment-meta b{text-decoration:none}
-</style></head><body>
-<header><small>SERO TEAM</small><h1>함께 챙기는 오늘의 할 일</h1><div>세로 팀 업무 관리</div></header>
-<main class="wrap">
-<section id="loginPanel" class="login"><h2>팀 로그인</h2><p class="muted">본인 담당자와 비밀번호로 들어오세요.</p><form id="loginForm"><label class="field"><span>담당자</span><select id="loginUser">
-<option value="a">민세한</option>
-<option value="b">민경욱</option>
-<option value="c">김진솔</option>
-</select></label><label class="field"><span>비밀번호</span><input id="pin" type="password" required autocomplete="current-password"></label><p id="loginError" class="error" role="alert"></p><button class="primary" id="loginButton">들어가기</button></form></section>
-<section id="app" hidden><div class="toolbar"><strong id="who"></strong><span class="grow"></span><label><input type="checkbox" id="showDone"> 완료한 일 보기</label><button id="refresh">새로고침</button><button id="exit">로그아웃</button></div><div id="status" role="status" aria-live="polite"></div><div class="board" id="board"></div></section>
-</main>
-<dialog id="editor"><form id="taskForm"><h2 id="editorTitle">할 일 추가</h2><label class="field"><span>담당자</span><select id="assignee"></select></label><label class="field"><span>할 일</span><input id="title" required maxlength="160" placeholder="예: ○○카페 견적 보내기"></label><label class="field"><span>마감일 · 선택</span><input id="due" type="date"></label><label class="field"><span>메모 · 선택</span><textarea id="note" maxlength="3000" placeholder="함께 알아야 할 내용을 적어 주세요."></textarea></label><p id="formError" class="error" role="alert"></p><div class="actions"><button type="button" id="cancel">취소</button><button class="primary" id="save">저장</button></div></form></dialog>
+<header>
+  <div class="wrap">
+    <h1>세로 <small>에어컨 · 제빙기 청소</small></h1>
+    <p>어디까지 뜯어서 어떻게 닦았는지, 작업 과정을 영상으로 남겨드립니다.<br>원하시면 그 영상으로 가게 홍보까지 해드려요.</p>
+    <div class="btns">
+      <a class="btn btn-green" href="/go/">네이버 예약하기</a>
+      <a class="btn btn-ghost" href="/yt/">작업 영상 보기</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>세로가 청소한 가게</h2>
+    <p class="lead">핀을 누르면 어떤 작업을 했는지, 영상은 어디서 보는지 나옵니다.</p>
+    <div class="tools">
+      <input id="q" type="search" placeholder="가게명이나 동네로 찾기 (예: 중랑구, 컴포즈)">
+      <button id="locate" type="button">📍 내 위치</button>
+    </div>
+    <div id="map"></div>
+    <div class="results" id="results"></div>
+    <div class="count" id="count" role="status">불러오는 중…</div>
+    <button id="retry-data" type="button" hidden>기록 다시 불러오기</button>
+    <div class="count" id="map-status" role="status">지도를 불러오는 중…</div>
+    <button id="retry-map" type="button" hidden>지도 다시 불러오기</button>
+    <div class="legend">
+      <span>😊 최근 1년 이내 작업 기록</span>
+      <span><span style="filter:grayscale(1)">😊</span> 1년 이상 지난 작업 기록</span>
+    </div>
+    <p class="record-note">표정과 색은 작업 기록의 경과 기간을 나타내며, 현재 위생 상태에 대한 평가는 아닙니다. 회색 표시는 최근 작업 기록을 확인해 주세요. 날짜 미등록 기록도 회색으로 표시됩니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>청소 기록</h2>
+    <p class="lead">최근 순. 누르면 지도에서 위치가 열립니다.</p>
+    <div class="list" id="list"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>최근 작업 영상</h2>
+    <p class="lead">쇼츠로 짧게. 전체는 유튜브 채널에서.</p>
+    <div class="videos" id="videos"></div>
+    <div class="video-actions">
+      <a class="btn btn-video-all" href="/yt/" target="_blank" rel="noopener noreferrer">작업 영상 전체 보기 ↗</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    세로 · 서울 중랑구 · <a href="tel:01027900180">010-2790-0180</a><br>
+    유튜브 <a href="/yt/">세로로 홍보해드림</a>
+  </div>
+</footer>
+
+<!-- ====== 여기 두 개만 채우면 됨 ====== -->
 <script>
-// 배포 → 웹 앱에서 복사한 /exec 주소를 작은따옴표 안에 넣으세요.
-const APP_URL = 'https://script.google.com/macros/s/AKfycbwIhs6s4HrX8fuwnYUd1mXwTd9DeToelOwcnz3eI7xT6H-UGX6D64O6WFO516tYjD8/exec';
-let token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0;
-function validEndpoint(){try{const u=new URL(APP_URL);return u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname)&&!u.search&&!u.hash;}catch{return false;}}
-const $=id=>document.getElementById(id);
-async function call(name,...args){
- if(!validEndpoint())throw new Error('관리자가 team/index.html의 APP_URL에 웹 앱 배포 주소를 먼저 넣어 주세요.');
- const payload={action:name};
- if(name==='login'){payload.id=args[0];payload.pin=args[1];}
- else{payload.token=args[0];if(['saveTask','getComments','addComment'].includes(name))payload.task=args[1];}
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
- try{
-   const res=await fetch(APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),credentials:'omit',redirect:'follow',cache:'no-store',signal:controller.signal});
-   if(!res.ok)throw new Error('서버 응답 오류입니다. 웹 앱 배포 설정을 확인하세요.');
-   let result;try{result=JSON.parse(await res.text());}catch{throw new Error('서버 연결을 확인하세요. 배포는 실행 사용자 ‘나’, 액세스 ‘모든 사용자’로 설정해야 합니다.');}
-   if(!result.ok){const err=new Error(result.error||'요청을 처리하지 못했습니다.');err.code=result.code;throw err;}
-   return result.data;
- }catch(err){
-   if(err.name==='AbortError'||err instanceof TypeError)throw new Error(['saveTask','addComment'].includes(name)?'저장 결과를 확인하지 못했습니다. 취소 후 새로고침으로 반영 여부를 확인하고 다시 시도하세요.':'서버에 연결하지 못했습니다. 인터넷과 웹 앱 배포 주소·권한을 확인하세요.');
-   throw err;
- }finally{clearTimeout(timeout);}
-}
-function message(e){return e&&e.message?e.message:String(e);}
-function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
-function setBusy(v){busy=v;$('save').disabled=v;$('refresh').disabled=v;document.querySelectorAll('#board button,#board input').forEach(e=>e.disabled=v);}
-async function load(quiet=false){
- if(!token||busy||loading)return;
- loading=true;const epoch=generation;
- if(!quiet)$('status').textContent='공유 할 일을 불러오는 중…';
- try{const data=await call('getBoard',token);if(epoch!==generation)return;team=data.team;tasks=data.tasks;if(!$('editor').open&&!busy)render();$('status').textContent='최근 확인 '+new Date().toLocaleTimeString('ko-KR')+' · 30초마다 확인';}
- catch(e){$('status').textContent=message(e);if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}}finally{loading=false;}
-}
-function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function render(){
- if(commentPosting.size||document.activeElement?.closest?.('.comment-compose'))return;
- commentStates.forEach(s=>{s.view=null;});
- $('board').replaceChildren();
- team.forEach(person=>{
-  const all=tasks.filter(t=>t.assignee===person.id),visible=all.filter(t=>$('showDone').checked||!t.done).sort((a,b)=>Number(a.done)-Number(b.done)||(a.due||'9999').localeCompare(b.due||'9999')||b.createdAt.localeCompare(a.createdAt));
-  const col=node('section',undefined,'column'),head=node('div',undefined,'column-head'),info=node('div');
-  info.append(node('h2',person.name),node('div',`남은 일 ${all.filter(t=>!t.done).length} · 완료 ${all.filter(t=>t.done).length}`,'count'));head.append(info);col.append(head);
-  visible.forEach(task=>{
-   const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
-   card.append(node('div',task.createdBy?'등록: '+teamNameV3(task.createdBy):'등록: 기록 없음','task-author'));
-   if(task.note)card.append(node('p',task.note));
-   const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);appendTaskExtras(card,task);col.append(card);
-  });
-  if(!visible.length)col.append(node('div','등록된 할 일이 없어요.','empty'));
-  const add=node('button','+ 할 일 추가','add');add.onclick=()=>openEditor(person.id);col.append(add);$('board').append(col);
- });
- void refreshVisibleComments();
-}
-function openEditor(id,task=null){editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
-async function toggle(task,done){setBusy(true);try{await call('saveTask',token,{...task,done});}catch(e){$('status').textContent=message(e);render();setBusy(false);return;}setBusy(false);await load();}
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
-$('taskForm').onsubmit=async e=>{e.preventDefault();setBusy(true);$('formError').textContent='';try{await call('saveTask',token,{id:editing?.id,revision:editing?.revision,assignee:$('assignee').value,title:$('title').value,note:$('note').value,due:$('due').value,done:editing?.done||false});$('editor').close();}catch(e){$('formError').textContent=message(e);}finally{setBusy(false);}if(!$('editor').open)await load();};
-$('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventListener('cancel',e=>{if(busy)e.preventDefault();});$('showDone').onchange=render;$('refresh').onclick=()=>load();
-function leave(){generation++;clearInterval(timer);token='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
-$('exit').onclick=()=>{call('logout',token).catch(()=>{});leave();};
-if(!validEndpoint()){$('loginButton').disabled=true;$('loginError').textContent='연결 전입니다. team/index.html의 APP_URL에 /exec로 끝나는 웹 앱 배포 주소를 넣어 주세요.';}
-// 카드 안에서 바로 읽고 작성하는 댓글
-const commentStates = new Map();
-const commentPosting = new Set();
-function teamNameV3(id){return team.find(u=>u.id===id)?.name||'확인 불가';}
-function commentState(id){
-  if(!commentStates.has(id))commentStates.set(id,{items:[],loaded:false,loading:false,draft:'',pending:null,expanded:false,error:'',view:null});
-  return commentStates.get(id);
-}
-function appendTaskExtras(card,task){
-  const state=commentState(task.id),section=node('section',undefined,'inline-comments');
-  section.setAttribute('aria-label',task.title+' 댓글');
-  const heading=node('div',undefined,'comment-heading'),label=node('b','댓글'),refresh=node('button','새로고침');
-  refresh.type='button';refresh.onclick=()=>refreshTaskComments(task.id);heading.append(label,refresh);
-  const list=node('div',undefined,'comment-list');list.setAttribute('aria-live','polite');
-  const form=node('form',undefined,'comment-compose'),input=node('textarea');
-  input.rows=2;input.maxLength=2000;input.required=true;input.value=state.draft;
-  input.placeholder='진행 상황이나 답변을 남겨 주세요.';
-  input.setAttribute('aria-label',task.title+' 댓글 내용');
-  input.oninput=()=>{state.draft=input.value;};
-  const actions=node('div',undefined,'comment-actions'),send=node('button','댓글 등록','primary');send.type='submit';
-  actions.append(send);form.append(input,actions);
-  const error=node('div',undefined,'error');error.setAttribute('role','alert');
-  state.view={list,input,send,error,refresh,label};
-  form.onsubmit=e=>{e.preventDefault();submitTaskComment(task.id);};
-  section.append(heading,list,form,error);card.append(section);
-  paintTaskComments(task.id);
-}
-function paintTaskComments(id){
-  const s=commentStates.get(id);if(!s?.view)return;
-  const v=s.view;v.list.replaceChildren();v.label.textContent=s.loaded?'댓글 '+s.items.length:'댓글';
-  v.error.textContent=s.error;
-  v.refresh.disabled=s.loading||commentPosting.has(id);
-  v.send.disabled=commentPosting.has(id);v.input.disabled=commentPosting.has(id);
-  v.send.textContent=commentPosting.has(id)?'등록 중…':'댓글 등록';
-  if(!s.loaded)v.list.append(node('p',s.loading?'댓글 불러오는 중…':'댓글을 불러오지 못했어요.','comment-empty'));
-  else if(!s.items.length)v.list.append(node('p','아직 댓글이 없어요.','comment-empty'));
-  const items=s.expanded?s.items:s.items.slice(-3);
-  if(!s.expanded&&s.items.length>3){
-    const more=node('button','이전 댓글 '+(s.items.length-3)+'개 더 보기','comment-more');more.type='button';
-    more.onclick=()=>{s.expanded=true;paintTaskComments(id);};v.list.append(more);
+  const NAVER_CLIENT_ID = "shp00ewa7b";
+  const SHEET_CSV_URL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRfCQE8qTv5nB82JYMMRQCUKoXvoEZtC9D5OnvYypx8BfrZOMec25Xh9KpMFAUtn4zIu_HCX24E73Gs/pub?output=csv";
+</script>
+<!-- ================================== -->
+
+<script>
+  // Records never wait for the map SDK or address lookups.
+  let currentData = [], currentPins = [], mapTask = null, currentMap = null, sheetBusy = false;
+  const isOwnerPage = new URLSearchParams(location.search).has("id");
+  const mapStatus = document.getElementById("map-status");
+  const retryData = document.getElementById("retry-data");
+  const retryMap = document.getElementById("retry-map");
+  const countEl = document.getElementById("count");
+  const CACHE_KEY = "sero-public-records-v1";
+  function esc(value){return String(value ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+  function safeURL(value){try{const u=new URL(value);return /^https?:$/.test(u.protocol)?esc(u.href):"";}catch{return "";}}
+  let sdkTask=null, sdkSequence=0;
+  function mapSDKReady(){
+    return typeof window.naver?.maps?.Map==="function" &&
+           typeof window.naver?.maps?.Service?.geocode==="function";
   }
-  items.forEach(c=>{
-    const item=node('article',undefined,'inline-comment'),meta=node('div',undefined,'comment-meta');
-    const date=new Date(c.createdAt);meta.append(node('b',teamNameV3(c.author)),node('time',isNaN(date.getTime())?'':date.toLocaleString('ko-KR')));
-    item.append(meta,node('p',c.text,'comment-body'));v.list.append(item);
-  });
-  if(s.expanded&&s.items.length>3){
-    const less=node('button','최근 댓글만 보기','comment-more');less.type='button';less.onclick=()=>{s.expanded=false;paintTaskComments(id);};v.list.append(less);
+  function loadMapSDK(){
+    if(mapSDKReady()) return Promise.resolve();
+    if(sdkTask) return sdkTask;
+    sdkTask=new Promise((resolve,reject)=>{
+      const script=document.createElement("script");
+      const callback="seroMapReady"+(++sdkSequence);
+      let finished=false;
+      const finish=(error)=>{
+        if(finished) return; finished=true;
+        clearTimeout(timeout);clearTimeout(slowNotice);
+        script.onload=script.onerror=null;
+        window[callback]=()=>{};
+        if(error){script.remove();reject(error);}else resolve();
+      };
+      const slowNotice=setTimeout(()=>{
+        if(!finished) mapStatus.textContent="지도 연결에 시간이 걸리고 있습니다. 청소 기록과 영상은 아래에서 확인하실 수 있습니다.";
+      },8000);
+      const timeout=setTimeout(()=>finish(new Error("map timeout")),45000);
+      // NAVER invokes callback after all requested submodules are ready.
+      window[callback]=()=>{
+        if(mapSDKReady())finish();
+        else finish(new Error("map unavailable"));
+      };
+      script.src=`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NAVER_CLIENT_ID}&submodules=geocoder&callback=${callback}`;
+      script.async=true;
+      // onload alone does not guarantee that the geocoder submodule is ready.
+      script.onload=()=>{if(mapSDKReady())finish();};
+      script.onerror=()=>finish(new Error("map network"));
+      document.head.appendChild(script);
+    }).catch(error=>{sdkTask=null;throw error;});
+    return sdkTask;
   }
-}
-async function refreshTaskComments(id){
-  if(!token)return;
-  const s=commentState(id);if(s.loading)return;
-  const epoch=generation;s.loading=true;s.error='';paintTaskComments(id);
-  try{
-    const data=await call('getComments',token,{taskId:id});
-    if(epoch!==generation)return;
-    s.items=data.comments;s.loaded=true;
-  }catch(e){
-    if(epoch!==generation)return;
-    s.error=message(e);
-    if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}
-  }finally{
-    if(epoch===generation){s.loading=false;paintTaskComments(id);if(s.refreshAfterLoad){s.refreshAfterLoad=false;void refreshTaskComments(id);}}
+  function startMap(data){
+    if(mapTask) return mapTask;
+    mapStatus.textContent="지도를 불러오는 중…";
+    retryMap.hidden=true;
+    mapTask=(async()=>{
+      for(let attempt=0;attempt<3;attempt++){
+        try{
+          await loadMapSDK();
+          await initMap(data);
+          return true;
+        }catch(error){
+          if(attempt===2) throw error;
+          mapStatus.textContent="지도 연결을 다시 시도하고 있습니다. 청소 기록과 영상은 아래에서 확인하실 수 있습니다.";
+          await new Promise(resolve=>setTimeout(resolve,800*(attempt+1)));
+        }
+      }
+    })().catch(()=>{
+      mapStatus.textContent="지도를 불러오지 못했습니다. 청소 기록과 영상은 아래에서 확인할 수 있습니다.";
+      retryMap.hidden=false; mapTask=null;
+      return false;
+    });
+    return mapTask;
   }
-}
-async function refreshVisibleComments(){
-  const ids=Array.from(commentStates).filter(([id,s])=>s.view&&tasks.some(t=>t.id===id&&($('showDone').checked||!t.done))).map(([id])=>id);
-  let index=0;const epoch=generation;
-  async function worker(){while(index<ids.length&&epoch===generation){await refreshTaskComments(ids[index++]);}}
-  await Promise.all([worker(),worker()]);
-}
-async function submitTaskComment(id){
-  const s=commentState(id);if(commentPosting.has(id)||!token)return;
-  const text=s.draft.trim();if(!text)return;
-  if(!s.pending||s.pending.text!==text)s.pending={taskId:id,text,requestId:crypto.randomUUID()};
-  const epoch=generation;commentPosting.add(id);s.error='';paintTaskComments(id);
-  try{
-    await call('addComment',token,s.pending);
-    if(epoch!==generation)return;
-    s.draft='';s.pending=null;if(s.view)s.view.input.value='';
-    // 조회 중인 응답이 있으면 끝난 뒤 새 댓글을 다시 읽습니다.
-    if(s.loading){s.refreshAfterLoad=true;}
-    else await refreshTaskComments(id);
-  }catch(e){
-    if(epoch!==generation)return;
-    s.error=message(e)+' 새로고침으로 등록 여부를 확인한 후 다시 시도하세요.';
-  }finally{
-    if(epoch===generation){commentPosting.delete(id);paintTaskComments(id);}
+  async function openRow(row){
+    if(!await startMap(currentData)) return;
+    const pin=currentPins.find(p=>p.row["가게명"]===row["가게명"]&&p.row["주소"]===row["주소"]);
+    if(pin) pin.open();
+    else mapStatus.textContent="이 가게의 지도 위치를 불러오지 못했습니다. 기록과 영상은 확인할 수 있습니다.";
   }
-}
-const leaveWithInlineComments = leave;
-leave = function(){
-  commentStates.clear();commentPosting.clear();$('editor').close();leaveWithInlineComments();
-};
-</script></body></html>
+  function showRecordResults(rows){
+    const el=document.getElementById("results");
+    el.innerHTML=rows.length?rows.map((r,i)=>`<div data-i="${i}">${esc(r["가게명"])}<span>${esc(r["작업"])}</span></div>`).join(""):'<div>결과 없음</div>';
+    [...el.children].forEach(child=>child.onclick=()=>{if(rows[child.dataset.i]) openRow(rows[child.dataset.i]);});
+  }
+  function renderData(data){
+    const ordered=storesForMap(data);
+    countEl.textContent=ordered.length?`지금까지 ${ordered.length}곳`:"아직 등록된 가게가 없습니다.";
+    const list=document.getElementById("list");
+    list.innerHTML=ordered.length?ordered.map((r,i)=>{
+      const days=daysSince(r["날짜"]), st=state(days);
+      const video=safeURL(r["영상링크"]), place=safeURL(r["플레이스링크"]);
+      return `<div class="item" data-i="${i}"><div class="pin ${st.cls}" role="img" aria-label="${esc(st.label)}" title="${esc(st.label)}">${st.face}</div><div><b>${esc(r["가게명"])}</b><div class="meta">${esc(r["작업"])}${r["날짜"]?" · "+esc(r["날짜"]):""}${days!==null?" · "+days+"일 전":""}</div><div class="links">${video?`<a href="${video}" target="_blank" rel="noopener">영상 ▶</a>`:""}${place?`<a href="${place}" target="_blank" rel="noopener">가게 보기</a>`:""}</div></div></div>`;
+    }).join(""):'<p class="lead">아직 기록이 없습니다.</p>';
+    [...list.querySelectorAll(".item")].forEach(el=>el.onclick=e=>{if(!e.target.closest("a"))openRow(ordered[el.dataset.i]);});
+    const seen=new Set();
+    const videos=data.slice().sort((a,b)=>recordTime(b)-recordTime(a)).filter(r=>{const id=ytId(r["영상링크"]||"");if(!id||seen.has(id))return false;seen.add(id);return true;}).slice(0,6);
+    document.getElementById("videos").innerHTML=videos.length?videos.map(r=>`<div class="video"><iframe title="청소 작업 영상" src="https://www.youtube.com/embed/${ytId(r["영상링크"])}" allowfullscreen loading="lazy"></iframe></div>`).join(""):'<p class="lead">첫 영상 준비 중입니다.</p>';
+    document.getElementById("q").oninput=e=>{
+      const q=e.target.value.trim();
+      if(!q){document.getElementById("results").innerHTML="";return;}
+      showRecordResults(ordered.filter(r=>((r["가게명"]||"")+" "+(r["주소"]||"")).includes(q)));
+    };
+  }
+  async function loadRecords(){
+    if(sheetBusy) return; sheetBusy=true; retryData.hidden=true;
+    if(!currentData.length) countEl.textContent="청소 기록을 불러오는 중…";
+    let data=null;
+    for(let attempt=0;attempt<2;attempt++){
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),10000);
+      try{
+        const res=await fetch(SHEET_CSV_URL,{signal:controller.signal,cache:"no-cache"});
+        if(!res.ok) throw new Error("sheet response");
+        const text=await res.text();
+        if(/^\s*</.test(text)) throw new Error("sheet returned HTML");
+        data=parseCSV(text); break;
+      }catch(error){
+        if(attempt===0) countEl.textContent=currentData.length?"저장된 기록 표시 중 · 최신 기록 다시 확인 중…":"청소 기록을 다시 불러오는 중…";
+      }finally{clearTimeout(timer);}
+    }
+    sheetBusy=false;
+    if(data===null){
+      countEl.textContent=currentData.length?"저장된 기록을 표시하고 있습니다. 최신 기록을 불러오지 못했습니다.":"청소 기록을 불러오지 못했습니다. 다시 시도해 주세요.";
+      retryData.hidden=false;return;
+    }
+    currentData=data; renderData(data);
+    try{localStorage.setItem(CACHE_KEY,JSON.stringify({at:Date.now(),data}));}catch{}
+    // Rebuild only if cached data started an earlier map render.
+    if(mapTask) await mapTask;
+    mapTask=null; startMap(data);
+  }
+  function parseCSV(text){
+    const rows=[]; let row=[], cur="", q=false;
+    for(let i=0;i<text.length;i++){
+      const c=text[i];
+      if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+      else if(c==='"') q=true;
+      else if(c===','){row.push(cur);cur="";}
+      else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur="";}
+      else if(c!=='\r') cur+=c;
+    }
+    if(cur!==""||row.length){row.push(cur);rows.push(row);}
+    if(!rows.length) return [];
+    const head=rows.shift().map(h=>h.replace(/^\uFEFF/," ").trim());
+    if(!head.includes("가게명") || !head.includes("주소")) throw new Error("sheet columns");
+    return rows.filter(r=>r.some(v=>v.trim())).map(r=>Object.fromEntries(head.map((h,i)=>[h,(r[i]||"").trim()])));
+  }
+
+  function daysSince(str){
+    if(!str) return null;
+    const m=str.match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/); if(!m) return null;
+    const d=new Date(+m[1],+m[2]-1,+m[3]); return Math.floor((Date.now()-d)/86400000);
+  }
+  function state(days){
+    // Owner page keeps its existing behavior. Public colors describe record age only.
+    if(isOwnerPage) return {cls:"pin-ok",face:"✓",label:"청소 작업 기록"};
+    if(days===null || !Number.isFinite(days) || days<0){
+      return {cls:"pin-history",face:"😊",label:"작업 날짜를 확인해 주세요"};
+    }
+    return days>=365
+      ? {cls:"pin-history",face:"😊",label:"1년 이상 지난 작업 기록 · 최근 작업 기록을 확인해 주세요"}
+      : {cls:"pin-ok",face:"😊",label:"최근 1년 이내 청소 작업 기록"};
+  }
+
+  function ytId(url){
+    const m = url.match(/(?:shorts\/|v=|youtu\.be\/)([\w-]{11})/); return m?m[1]:null;
+  }
+
+  function savedCoordinates(row){
+    const lat=String(row['위도']??'').trim(), lng=String(row['경도']??'').trim();
+    if(!lat||!lng)return null;
+    const y=Number(lat),x=Number(lng);
+    return Number.isFinite(y)&&Number.isFinite(x)&&y>=-90&&y<=90&&x>=-180&&x<=180?{x,y}:null;
+  }
+  function resolveStorePosition(row,callback){
+    const point=savedCoordinates(row);
+    if(point){callback(naver.maps.Service.Status.OK,{v2:{addresses:[point]}});return;}
+    naver.maps.Service.geocode({query:row['주소']},callback);
+  }
+  function recordTime(row){
+    const m=(row['날짜']||'').match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
+    return m ? new Date(+m[1],+m[2]-1,+m[3]).getTime() : 0;
+  }
+  function storesForMap(records){
+    const groups=new Map();
+    // Same store name and address are one place, regardless of work count or number assignment.
+    const norm=x=>String(x||'').replace(/\s+/g,'').toLowerCase();
+    const sorted=records.slice().sort((a,b)=>recordTime(b)-recordTime(a));
+    for(const row of sorted){
+      const key=norm(row['가게명'])+'|'+norm(row['주소']);
+      if(!groups.has(key)) groups.set(key,{...row,_jobs:new Set()});
+      const store=groups.get(key);
+      if(row['작업']) store._jobs.add(row['작업'].trim());
+      if(!savedCoordinates(store)&&savedCoordinates(row)){store['위도']=row['위도'];store['경도']=row['경도'];}
+      if(!store['영상링크'] && row['영상링크']) store['영상링크']=row['영상링크'];
+      if(!store['플레이스링크'] && row['플레이스링크']) store['플레이스링크']=row['플레이스링크'];
+    }
+    return [...groups.values()].map(store=>({...store,'작업':[...store._jobs].join(' · ')}));
+  }
+  async function initMap(data){
+    if(currentMap && typeof currentMap.destroy === "function") currentMap.destroy();
+    const map = new naver.maps.Map("map",{center:new naver.maps.LatLng(37.56,127.0),zoom:10});
+    currentMap=map;
+    const info=new naver.maps.InfoWindow({borderWidth:0,backgroundColor:"#fff",anchorSize:new naver.maps.Size(10,10)});
+    const bounds=new naver.maps.LatLngBounds();
+    let ok=0; const pins=[];
+
+    const queue=storesForMap(data).filter(row=>row["주소"]);
+    async function worker(){
+      while(queue.length){
+      const row=queue.shift();
+      await new Promise(resolve=>{
+        let settled=false;
+        const done=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};
+        const timer=setTimeout(done,6000);
+        try{resolveStorePosition(row,(status,resp)=>{
+          if(settled) return;
+          try{
+          const a=resp&&resp.v2&&resp.v2.addresses&&resp.v2.addresses[0];
+          if(status!==naver.maps.Service.Status.OK||!a){done();return;}
+          const pos=new naver.maps.LatLng(+a.y,+a.x);
+          const days=daysSince(row["날짜"]); const st=state(days);
+          const marker=new naver.maps.Marker({position:pos,map,title:row["가게명"],
+            icon:{content:`<div class="pin ${st.cls}" role="img" aria-label="${esc(st.label)}" title="${esc(st.label)}">${st.face}</div>`,size:new naver.maps.Size(40,40),anchor:new naver.maps.Point(20,20)}});
+          bounds.extend(pos); ok++;
+          const html=`<div class="info"><b>${row["가게명"]||""}</b>
+            ${row["작업"]||""}${row["날짜"]?" · "+row["날짜"]:""}<br>
+            ${row["영상링크"]?`<a href="${row["영상링크"]}" target="_blank">작업 영상 ▶</a>`:""}
+            ${row["플레이스링크"]?` &nbsp; <a href="${row["플레이스링크"]}" target="_blank">가게 보기</a>`:""}
+            ${days!==null?`<br><span style="color:#5c6470">청소한 지 ${days}일</span>`:""}
+            </div>`;
+          naver.maps.Event.addListener(marker,"click",()=>{info.setContent(html);info.open(map,marker);});
+          pins.push({row,marker,pos,html,days});
+          }finally{done();}
+        });}catch{done();}
+      });
+      }
+    }
+    await Promise.all(Array.from({length:Math.min(4,queue.length)},()=>worker()));
+    currentPins=pins;
+    for(const pin of pins) pin.open=()=>{
+      map.setCenter(pin.pos);map.setZoom(16);info.setContent(pin.html);info.open(map,pin.marker);
+      window.scrollTo({top:document.getElementById("map").offsetTop-10,behavior:"smooth"});
+    };
+    const total=storesForMap(data).length;
+    mapStatus.textContent=ok===total?"":`지도에 ${total}곳 중 ${ok}곳 표시 · 청소 기록은 아래에서 확인할 수 있습니다.`;
+    retryMap.hidden=ok===total || total===0;
+    if(ok) map.fitBounds(bounds,{top:40,right:40,bottom:40,left:40});
+    const want=new URLSearchParams(location.search).get("s");
+    if(want){ const p=pins.find(p=>p.row["가게명"]===want)||pins.find(p=>p.row["가게명"].includes(want));
+      if(p){ map.setCenter(p.pos); map.setZoom(16); info.setContent(p.html); info.open(map,p.marker); } }
+
+    const resEl=document.getElementById("results");
+    function showList(list,label){
+      resEl.innerHTML=list.length?list.map((p,i)=>`<div data-i="${i}">${p.row["가게명"]}<span>${p.row["작업"]||""}${label?label(p):""}</span></div>`).join("")
+        :`<div style="color:#5c6470;cursor:default">결과 없음</div>`;
+      [...resEl.children].forEach(el=>el.onclick=()=>{const p=list[+el.dataset.i]; if(!p) return;
+        map.setCenter(p.pos); map.setZoom(15); info.setContent(p.html); info.open(map,p.marker); window.scrollTo({top:document.getElementById("map").offsetTop-10,behavior:"smooth"});});
+    }
+    document.getElementById("locate").onclick=()=>{
+      if(!navigator.geolocation){alert("이 브라우저는 위치를 지원하지 않아요");return;}
+      navigator.geolocation.getCurrentPosition(g=>{
+        const me=new naver.maps.LatLng(g.coords.latitude,g.coords.longitude);
+        new naver.maps.Marker({position:me,map,icon:{content:'<div class="me"></div>',anchor:new naver.maps.Point(9,9)}});
+        map.setCenter(me); map.setZoom(13);
+        const near=pins.map(p=>({...p,dist:map.getProjection().getDistance(me,p.pos)})).sort((a,b)=>a.dist-b.dist).slice(0,5);
+        showList(near,p=>` · ${(p.dist/1000).toFixed(1)}km`);
+      },()=>alert("위치를 가져오지 못했어요. 위치 권한을 확인해 주세요."),{enableHighAccuracy:true,timeout:8000});
+    };
+
+  }
+  if(!isOwnerPage){
+    retryData.onclick=loadRecords;
+    retryMap.onclick=async()=>{if(mapTask)await mapTask;mapTask=null;startMap(currentData);};
+    document.getElementById("locate").onclick=()=>{mapStatus.textContent="지도를 준비하고 있습니다. 잠시 후 다시 눌러 주세요.";startMap(currentData);};
+    try{
+      const cached=JSON.parse(localStorage.getItem(CACHE_KEY)||"null");
+      if(cached&&Array.isArray(cached.data)&&cached.data.length&&Date.now()-cached.at<86400000){
+        currentData=cached.data;renderData(currentData);
+        countEl.textContent+=" · 저장된 기록 표시 중, 최신 기록 확인 중…";
+      }
+    }catch{}
+    loadRecords();
+    // Start loading the SDK in parallel with the sheet; failures are handled by startMap.
+    startMap(currentData);
+  }
+
+</script>
+<script src="/owner.js"></script>
+</body>
+</html>
