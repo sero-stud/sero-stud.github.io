@@ -2,6 +2,23 @@
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>세로 · 팀 업무</title>
 <style>
 :root{--navy:#163060;--muted:#68768a;--border:#e1e6ef}*{box-sizing:border-box}body{margin:0;background:#f3f5f9;color:#18263b;font:15px/1.5 system-ui,-apple-system,'Malgun Gothic',sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--border);background:white;border-radius:10px;padding:10px 15px;color:var(--navy)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #84b3ff;outline-offset:2px}.primary{background:var(--navy);color:white;border-color:var(--navy)}header{background:var(--navy);color:white;padding:25px max(20px,calc((100vw - 1200px)/2))}header small{letter-spacing:2px;color:#c0d1ec}h1{font-size:25px;margin:5px 0}.wrap{max-width:1240px;padding:24px 20px;margin:auto}.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:22px}.toolbar .grow{flex:1}.muted{color:var(--muted)}#status{min-height:24px;font-size:13px;margin-bottom:12px}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.column{background:#eaf0f7;border:1px solid #dce4f0;border-radius:16px;padding:17px;align-self:start}.column h2{font-size:18px;margin:0}.column-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.count{font-size:12px;color:var(--muted);margin-top:4px}.task{padding:17px;background:white;border:1px solid var(--border);border-radius:12px;margin-bottom:11px;box-shadow:0 2px 4px #16306004}.task-top{display:flex;gap:10px;align-items:flex-start}.task input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--navy);margin-top:3px}.task strong{overflow-wrap:anywhere}.task p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;color:var(--muted);margin:10px 0}.task footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)}.task footer button{font-size:12px;padding:4px 9px}.done strong{text-decoration:line-through;color:var(--muted)}.late{color:#bd382d!important}.empty{text-align:center;padding:35px 10px;color:var(--muted);font-size:13px}.add{width:100%;background:transparent;border:1px dashed #aebdd0}dialog{border:0;border-radius:18px;width:min(460px,calc(100vw - 32px));padding:25px;box-shadow:0 20px 80px #14284833}dialog::backdrop{background:#12244066}dialog h2{margin:0 0 18px;font-size:21px}label.field{display:block;margin:13px 0}label.field span{display:block;font-size:13px;margin-bottom:6px}input:not([type=checkbox]),select,textarea{width:100%;padding:11px 12px;border:1px solid #cbd5e2;border-radius:9px;background:white;color:#18263b}textarea{resize:vertical;min-height:100px}.actions{display:flex;gap:9px;justify-content:flex-end;margin-top:20px}.login{max-width:420px;background:white;border:1px solid var(--border);padding:28px;border-radius:18px;margin:45px auto}.login h2{margin-top:0}.error{color:#b12c23;font-size:13px;white-space:pre-wrap}[hidden]{display:none!important}@media(max-width:760px){.board{grid-template-columns:1fr}.wrap{padding:18px 14px}header{padding:20px}.toolbar{gap:8px}.column{padding:15px}}
+
+.task-author{font-size:12px;color:var(--muted);margin:8px 0 10px 30px}
+.task .inline-comments{border-top:1px solid var(--border);margin-top:15px;padding-top:12px}
+.comment-heading,.comment-meta,.comment-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.comment-heading{font-size:13px;margin-bottom:8px}
+.comment-heading button,.comment-more{padding:4px 8px;font-size:12px}
+.inline-comment{padding:9px 0;border-bottom:1px solid #eef1f6}
+.comment-meta{font-size:12px;flex-wrap:wrap}
+.comment-meta time{color:var(--muted);font-size:11px}
+.task .comment-body{color:#24364f;margin:5px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.task .comment-empty{font-size:12px;margin:8px 0 12px;color:var(--muted)}
+.comment-compose{margin-top:12px}
+.comment-compose textarea{min-height:62px;font-size:13px}
+.comment-actions{justify-content:flex-end;margin-top:6px}
+.comment-actions button{padding:7px 11px;font-size:12px}
+.inline-comments .error{margin-top:8px}
+.done .comment-meta b{text-decoration:none}
 </style></head><body>
 <header><small>SERO TEAM</small><h1>함께 챙기는 오늘의 할 일</h1><div>세로 팀 업무 관리</div></header>
 <main class="wrap">
@@ -48,6 +65,8 @@ async function load(quiet=false){
 }
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function render(){
+ if(commentPosting.size||document.activeElement?.closest?.('.comment-compose'))return;
+ commentStates.forEach(s=>{s.view=null;});
  $('board').replaceChildren();
  team.forEach(person=>{
   const all=tasks.filter(t=>t.assignee===person.id),visible=all.filter(t=>$('showDone').checked||!t.done).sort((a,b)=>Number(a.done)-Number(b.done)||(a.due||'9999').localeCompare(b.due||'9999')||b.createdAt.localeCompare(a.createdAt));
@@ -55,12 +74,14 @@ function render(){
   info.append(node('h2',person.name),node('div',`남은 일 ${all.filter(t=>!t.done).length} · 완료 ${all.filter(t=>t.done).length}`,'count'));head.append(info);col.append(head);
   visible.forEach(task=>{
    const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
+   card.append(node('div',task.createdBy?'등록: '+teamNameV3(task.createdBy):'등록: 기록 없음','task-author'));
    if(task.note)card.append(node('p',task.note));
    const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);appendTaskExtras(card,task);col.append(card);
   });
   if(!visible.length)col.append(node('div','등록된 할 일이 없어요.','empty'));
   const add=node('button','+ 할 일 추가','add');add.onclick=()=>openEditor(person.id);col.append(add);$('board').append(col);
  });
+ void refreshVisibleComments();
 }
 function openEditor(id,task=null){editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
 async function toggle(task,done){setBusy(true);try{await call('saveTask',token,{...task,done});}catch(e){$('status').textContent=message(e);render();setBusy(false);return;}setBusy(false);await load();}
@@ -70,108 +91,99 @@ $('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventList
 function leave(){generation++;clearInterval(timer);token='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
 $('exit').onclick=()=>{call('logout',token).catch(()=>{});leave();};
 if(!validEndpoint()){$('loginButton').disabled=true;$('loginError').textContent='연결 전입니다. team/index.html의 APP_URL에 /exec로 끝나는 웹 앱 배포 주소를 넣어 주세요.';}
-// 등록자 표시와 댓글 화면
-let commentTaskId = '', commentBusy = false, pendingComment = null;
-const commentDialog = document.createElement('dialog');
-commentDialog.id = 'commentDialog';
-commentDialog.innerHTML = `
-  <h2 id="commentTitle">댓글</h2>
-  <p class="muted">진행 상황을 남겨 주세요. 업무 메모는 그대로 유지됩니다.</p>
-  <div id="commentList" style="max-height:35vh;overflow:auto" aria-live="polite"></div>
-  <form id="commentForm">
-    <label class="field"><span>댓글 내용</span>
-      <textarea id="commentText" required maxlength="2000" placeholder="예: 남색 재고 확인했습니다."></textarea>
-    </label>
-    <p id="commentError" class="error" role="alert"></p>
-    <div class="actions">
-      <button id="commentRefresh" type="button">새로고침</button>
-      <button id="commentClose" type="button">닫기</button>
-      <button id="commentSave" class="primary" type="submit">댓글 등록</button>
-    </div>
-  </form>`;
-document.body.append(commentDialog);
-
-function teamNameV3(id) {
-  return team.find(u=>u.id===id)?.name || '확인 불가';
+// 카드 안에서 바로 읽고 작성하는 댓글
+const commentStates = new Map();
+const commentPosting = new Set();
+function teamNameV3(id){return team.find(u=>u.id===id)?.name||'확인 불가';}
+function commentState(id){
+  if(!commentStates.has(id))commentStates.set(id,{items:[],loaded:false,loading:false,draft:'',pending:null,expanded:false,error:'',view:null});
+  return commentStates.get(id);
 }
-
-function appendTaskExtras(card, task) {
-  const author = node('p', task.createdBy
-    ? '등록: '+teamNameV3(task.createdBy)
-    : '등록: 기록 없음');
-  card.append(author);
-  const comments = node('button','댓글 보기 / 남기기');
-  comments.style.cssText='width:100%;margin-top:2px;font-size:13px';
-  comments.type='button';
-  comments.onclick=()=>openCommentsV3(task);
-  card.append(comments);
+function appendTaskExtras(card,task){
+  const state=commentState(task.id),section=node('section',undefined,'inline-comments');
+  section.setAttribute('aria-label',task.title+' 댓글');
+  const heading=node('div',undefined,'comment-heading'),label=node('b','댓글'),refresh=node('button','새로고침');
+  refresh.type='button';refresh.onclick=()=>refreshTaskComments(task.id);heading.append(label,refresh);
+  const list=node('div',undefined,'comment-list');list.setAttribute('aria-live','polite');
+  const form=node('form',undefined,'comment-compose'),input=node('textarea');
+  input.rows=2;input.maxLength=2000;input.required=true;input.value=state.draft;
+  input.placeholder='진행 상황이나 답변을 남겨 주세요.';
+  input.setAttribute('aria-label',task.title+' 댓글 내용');
+  input.oninput=()=>{state.draft=input.value;};
+  const actions=node('div',undefined,'comment-actions'),send=node('button','댓글 등록','primary');send.type='submit';
+  actions.append(send);form.append(input,actions);
+  const error=node('div',undefined,'error');error.setAttribute('role','alert');
+  state.view={list,input,send,error,refresh,label};
+  form.onsubmit=e=>{e.preventDefault();submitTaskComment(task.id);};
+  section.append(heading,list,form,error);card.append(section);
+  paintTaskComments(task.id);
 }
-
-function commentBusyV3(value) {
-  commentBusy=value;
-  ['commentSave','commentClose','commentRefresh','commentText'].forEach(id=>$(id).disabled=value);
-}
-
-async function refreshCommentsV3() {
-  $('commentError').textContent='';
-  const epoch=generation, requestedTask=commentTaskId;
-  const data=await call('getComments',token,{taskId:requestedTask});
-  if(epoch!==generation||requestedTask!==commentTaskId||!commentDialog.open)return;
-  const list=$('commentList'); list.replaceChildren();
-  if (!data.comments.length) list.append(node('p','아직 댓글이 없어요.','muted'));
-  data.comments.forEach(c=>{
-    const item=node('article');
-    item.style.cssText='padding:12px 0;border-bottom:1px solid #e1e6ef';
-    item.append(node('strong',teamNameV3(c.author)));
-    const date=new Date(c.createdAt);
-    item.append(node('div',isNaN(date.getTime())?'':date.toLocaleString('ko-KR'),'muted'));
-    const body=node('p',c.text);body.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';
-    item.append(body);list.append(item);
-  });
-}
-
-async function openCommentsV3(task) {
-  commentTaskId=task.id;pendingComment=null;
-  $('commentTitle').textContent=task.title+' · 댓글';
-  $('commentText').value='';$('commentList').replaceChildren(node('p','불러오는 중…'));
-  commentDialog.showModal();commentBusyV3(true);
-  try {await refreshCommentsV3();}
-  catch(e){$('commentError').textContent=message(e);}
-  finally {commentBusyV3(false);}
-}
-
-$('commentClose').onclick=()=>{if(!commentBusy)commentDialog.close();};
-commentDialog.addEventListener('cancel',e=>{if(commentBusy)e.preventDefault();});
-$('commentRefresh').onclick=async()=>{
-  commentBusyV3(true);
-  try {await refreshCommentsV3();}
-  catch(e){$('commentError').textContent=message(e);}
-  finally {commentBusyV3(false);}
-};
-$('commentForm').onsubmit=async e=>{
-  e.preventDefault();
-  const text=$('commentText').value.trim();if(!text)return;
-  if(!pendingComment || pendingComment.text!==text){
-    pendingComment={taskId:commentTaskId,text,requestId:crypto.randomUUID()};
+function paintTaskComments(id){
+  const s=commentStates.get(id);if(!s?.view)return;
+  const v=s.view;v.list.replaceChildren();v.label.textContent=s.loaded?'댓글 '+s.items.length:'댓글';
+  v.error.textContent=s.error;
+  v.refresh.disabled=s.loading||commentPosting.has(id);
+  v.send.disabled=commentPosting.has(id);v.input.disabled=commentPosting.has(id);
+  v.send.textContent=commentPosting.has(id)?'등록 중…':'댓글 등록';
+  if(!s.loaded)v.list.append(node('p',s.loading?'댓글 불러오는 중…':'댓글을 불러오지 못했어요.','comment-empty'));
+  else if(!s.items.length)v.list.append(node('p','아직 댓글이 없어요.','comment-empty'));
+  const items=s.expanded?s.items:s.items.slice(-3);
+  if(!s.expanded&&s.items.length>3){
+    const more=node('button','이전 댓글 '+(s.items.length-3)+'개 더 보기','comment-more');more.type='button';
+    more.onclick=()=>{s.expanded=true;paintTaskComments(id);};v.list.append(more);
   }
-  commentBusyV3(true);$('commentError').textContent='';
-  try {
-    await call('addComment',token,pendingComment);
-    $('commentText').value='';pendingComment=null;
-    await refreshCommentsV3();
-  }catch(e){$('commentError').textContent=message(e)+' 새로고침으로 등록 여부를 확인할 수 있습니다.';}
-  finally {commentBusyV3(false);}
+  items.forEach(c=>{
+    const item=node('article',undefined,'inline-comment'),meta=node('div',undefined,'comment-meta');
+    const date=new Date(c.createdAt);meta.append(node('b',teamNameV3(c.author)),node('time',isNaN(date.getTime())?'':date.toLocaleString('ko-KR')));
+    item.append(meta,node('p',c.text,'comment-body'));v.list.append(item);
+  });
+  if(s.expanded&&s.items.length>3){
+    const less=node('button','최근 댓글만 보기','comment-more');less.type='button';less.onclick=()=>{s.expanded=false;paintTaskComments(id);};v.list.append(less);
+  }
+}
+async function refreshTaskComments(id){
+  if(!token)return;
+  const s=commentState(id);if(s.loading)return;
+  const epoch=generation;s.loading=true;s.error='';paintTaskComments(id);
+  try{
+    const data=await call('getComments',token,{taskId:id});
+    if(epoch!==generation)return;
+    s.items=data.comments;s.loaded=true;
+  }catch(e){
+    if(epoch!==generation)return;
+    s.error=message(e);
+    if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}
+  }finally{
+    if(epoch===generation){s.loading=false;paintTaskComments(id);if(s.refreshAfterLoad){s.refreshAfterLoad=false;void refreshTaskComments(id);}}
+  }
+}
+async function refreshVisibleComments(){
+  const ids=Array.from(commentStates).filter(([id,s])=>s.view&&tasks.some(t=>t.id===id&&($('showDone').checked||!t.done))).map(([id])=>id);
+  let index=0;const epoch=generation;
+  async function worker(){while(index<ids.length&&epoch===generation){await refreshTaskComments(ids[index++]);}}
+  await Promise.all([worker(),worker()]);
+}
+async function submitTaskComment(id){
+  const s=commentState(id);if(commentPosting.has(id)||!token)return;
+  const text=s.draft.trim();if(!text)return;
+  if(!s.pending||s.pending.text!==text)s.pending={taskId:id,text,requestId:crypto.randomUUID()};
+  const epoch=generation;commentPosting.add(id);s.error='';paintTaskComments(id);
+  try{
+    await call('addComment',token,s.pending);
+    if(epoch!==generation)return;
+    s.draft='';s.pending=null;if(s.view)s.view.input.value='';
+    // 조회 중인 응답이 있으면 끝난 뒤 새 댓글을 다시 읽습니다.
+    if(s.loading){s.refreshAfterLoad=true;}
+    else await refreshTaskComments(id);
+  }catch(e){
+    if(epoch!==generation)return;
+    s.error=message(e)+' 새로고침으로 등록 여부를 확인한 후 다시 시도하세요.';
+  }finally{
+    if(epoch===generation){commentPosting.delete(id);paintTaskComments(id);}
+  }
+}
+const leaveWithInlineComments = leave;
+leave = function(){
+  commentStates.clear();commentPosting.clear();$('editor').close();leaveWithInlineComments();
 };
-
-const leaveBeforeCommentsV3 = leave;
-leave = function() {
-  commentDialog.close();
-  $('commentList').replaceChildren();
-  $('commentText').value='';
-  $('commentError').textContent='';
-  commentTaskId=''; pendingComment=null;
-  $('editor').close();
-  leaveBeforeCommentsV3();
-};
-
 </script></body></html>
