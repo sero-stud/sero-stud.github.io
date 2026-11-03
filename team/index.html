@@ -19,6 +19,7 @@
 .comment-actions button{padding:7px 11px;font-size:12px}
 .inline-comments .error{margin-top:8px}
 .done .comment-meta b{text-decoration:none}
+.comment-delete-actions{display:flex;justify-content:flex-end;margin-top:4px}.comment-delete{font-size:11px;padding:3px 7px;color:#a4473e;background:transparent}
 </style></head><body>
 <header><small>SERO TEAM</small><h1>함께 챙기는 오늘의 할 일</h1><div>세로 팀 업무 관리</div></header>
 <main class="wrap">
@@ -33,14 +34,14 @@
 <script>
 // 배포 → 웹 앱에서 복사한 /exec 주소를 작은따옴표 안에 넣으세요.
 const APP_URL = 'https://script.google.com/macros/s/AKfycbwIhs6s4HrX8fuwnYUd1mXwTd9DeToelOwcnz3eI7xT6H-UGX6D64O6WFO516tYjD8/exec';
-let token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0;
+let currentUserId='',token='',team=[],tasks=[],editing=null,busy=false,timer=null,loading=false,generation=0;
 function validEndpoint(){try{const u=new URL(APP_URL);return u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname)&&!u.search&&!u.hash;}catch{return false;}}
 const $=id=>document.getElementById(id);
 async function call(name,...args){
  if(!validEndpoint())throw new Error('관리자가 team/index.html의 APP_URL에 웹 앱 배포 주소를 먼저 넣어 주세요.');
  const payload={action:name};
  if(name==='login'){payload.id=args[0];payload.pin=args[1];}
- else{payload.token=args[0];if(['saveTask','getComments','addComment'].includes(name))payload.task=args[1];}
+ else{payload.token=args[0];if(['saveTask','getComments','addComment','deleteComment'].includes(name))payload.task=args[1];}
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try{
    const res=await fetch(APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),credentials:'omit',redirect:'follow',cache:'no-store',signal:controller.signal});
@@ -49,7 +50,7 @@ async function call(name,...args){
    if(!result.ok){const err=new Error(result.error||'요청을 처리하지 못했습니다.');err.code=result.code;throw err;}
    return result.data;
  }catch(err){
-   if(err.name==='AbortError'||err instanceof TypeError)throw new Error(['saveTask','addComment'].includes(name)?'저장 결과를 확인하지 못했습니다. 취소 후 새로고침으로 반영 여부를 확인하고 다시 시도하세요.':'서버에 연결하지 못했습니다. 인터넷과 웹 앱 배포 주소·권한을 확인하세요.');
+   if(err.name==='AbortError'||err instanceof TypeError)throw new Error(['saveTask','addComment','deleteComment'].includes(name)?'저장 결과를 확인하지 못했습니다. 취소 후 새로고침으로 반영 여부를 확인하고 다시 시도하세요.':'서버에 연결하지 못했습니다. 인터넷과 웹 앱 배포 주소·권한을 확인하세요.');
    throw err;
  }finally{clearTimeout(timeout);}
 }
@@ -85,10 +86,10 @@ function render(){
 }
 function openEditor(id,task=null){editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
 async function toggle(task,done){setBusy(true);try{await call('saveTask',token,{...task,done});}catch(e){$('status').textContent=message(e);render();setBusy(false);return;}setBusy(false);await load();}
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
+$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;currentUserId=r.user.id;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
 $('taskForm').onsubmit=async e=>{e.preventDefault();setBusy(true);$('formError').textContent='';try{await call('saveTask',token,{id:editing?.id,revision:editing?.revision,assignee:$('assignee').value,title:$('title').value,note:$('note').value,due:$('due').value,done:editing?.done||false});$('editor').close();}catch(e){$('formError').textContent=message(e);}finally{setBusy(false);}if(!$('editor').open)await load();};
 $('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventListener('cancel',e=>{if(busy)e.preventDefault();});$('showDone').onchange=render;$('refresh').onclick=()=>load();
-function leave(){generation++;clearInterval(timer);token='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
+function leave(){generation++;clearInterval(timer);token='';currentUserId='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
 $('exit').onclick=()=>{call('logout',token).catch(()=>{});leave();};
 if(!validEndpoint()){$('loginButton').disabled=true;$('loginError').textContent='연결 전입니다. team/index.html의 APP_URL에 /exec로 끝나는 웹 앱 배포 주소를 넣어 주세요.';}
 // 카드 안에서 바로 읽고 작성하는 댓글
@@ -96,7 +97,7 @@ const commentStates = new Map();
 const commentPosting = new Set();
 function teamNameV3(id){return team.find(u=>u.id===id)?.name||'확인 불가';}
 function commentState(id){
-  if(!commentStates.has(id))commentStates.set(id,{items:[],loaded:false,loading:false,draft:'',pending:null,expanded:false,error:'',view:null});
+  if(!commentStates.has(id))commentStates.set(id,{items:[],loaded:false,loading:false,draft:'',pending:null,deletedIds:new Set(),expanded:false,error:'',view:null});
   return commentStates.get(id);
 }
 function appendTaskExtras(card,task){
@@ -135,7 +136,14 @@ function paintTaskComments(id){
   items.forEach(c=>{
     const item=node('article',undefined,'inline-comment'),meta=node('div',undefined,'comment-meta');
     const date=new Date(c.createdAt);meta.append(node('b',teamNameV3(c.author)),node('time',isNaN(date.getTime())?'':date.toLocaleString('ko-KR')));
-    item.append(meta,node('p',c.text,'comment-body'));v.list.append(item);
+    item.append(meta,node('p',c.text,'comment-body'));
+    if(c.author===currentUserId){
+      const actions=node('div',undefined,'comment-delete-actions'),del=node('button','삭제','comment-delete');
+      del.type='button';del.disabled=commentPosting.has(id);
+      del.setAttribute('aria-label',teamNameV3(c.author)+' 댓글 삭제');
+      del.onclick=()=>deleteTaskComment(id,c.id);actions.append(del);item.append(actions);
+    }
+    v.list.append(item);
   });
   if(s.expanded&&s.items.length>3){
     const less=node('button','최근 댓글만 보기','comment-more');less.type='button';less.onclick=()=>{s.expanded=false;paintTaskComments(id);};v.list.append(less);
@@ -148,7 +156,7 @@ async function refreshTaskComments(id){
   try{
     const data=await call('getComments',token,{taskId:id});
     if(epoch!==generation)return;
-    s.items=data.comments;s.loaded=true;
+    s.items=data.comments.filter(c=>!c.deleted&&!s.deletedIds.has(c.id));s.loaded=true;
   }catch(e){
     if(epoch!==generation)return;
     s.error=message(e);
@@ -182,6 +190,27 @@ async function submitTaskComment(id){
     if(epoch===generation){commentPosting.delete(id);paintTaskComments(id);}
   }
 }
+
+async function deleteTaskComment(taskId,id){
+  if(!token||commentPosting.has(taskId))return;
+  if(!confirm('이 댓글을 삭제할까요? 화면에서 숨겨지며 시트 기록은 남습니다.'))return;
+  const s=commentState(taskId),epoch=generation;
+  commentPosting.add(taskId);s.error='';paintTaskComments(taskId);
+  try{
+    await call('deleteComment',token,{taskId,id});
+    if(epoch!==generation)return;
+    s.deletedIds.add(id);s.items=s.items.filter(c=>c.id!==id);
+    if(s.loading)s.refreshAfterLoad=true;
+    else await refreshTaskComments(taskId);
+  }catch(e){
+    if(epoch!==generation)return;
+    s.error=message(e)+' 새로고침으로 삭제 여부를 확인하세요.';
+    if(e.code==='AUTH_EXPIRED'){leave();$('loginError').textContent='로그인이 만료되었습니다. 다시 로그인하세요.';}
+  }finally{
+    if(epoch===generation){commentPosting.delete(taskId);paintTaskComments(taskId);}
+  }
+}
+
 const leaveWithInlineComments = leave;
 leave = function(){
   commentStates.clear();commentPosting.clear();$('editor').close();leaveWithInlineComments();
