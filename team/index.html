@@ -20,6 +20,7 @@
 .inline-comments .error{margin-top:8px}
 .done .comment-meta b{text-decoration:none}
 .comment-delete-actions{display:flex;justify-content:flex-end;margin-top:4px}.comment-delete{font-size:11px;padding:3px 7px;color:#a4473e;background:transparent}
+.task input[type=checkbox]:disabled{cursor:not-allowed;opacity:.5}
 </style></head><body>
 <header><small>SERO TEAM</small><h1>함께 챙기는 오늘의 할 일</h1><div>세로 팀 업무 관리</div></header>
 <main class="wrap">
@@ -56,7 +57,7 @@ async function call(name,...args){
 }
 function message(e){return e&&e.message?e.message:String(e);}
 function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
-function setBusy(v){busy=v;$('save').disabled=v;$('refresh').disabled=v;document.querySelectorAll('#board button,#board input').forEach(e=>e.disabled=v);}
+function setBusy(v){busy=v;$('save').disabled=v;$('refresh').disabled=v;document.querySelectorAll('#board button,#board input').forEach(e=>e.disabled=v||(e.type==='checkbox'&&e.dataset.assignee!==currentUserId));}
 async function load(quiet=false){
  if(!token||busy||loading)return;
  loading=true;const epoch=generation;
@@ -74,7 +75,7 @@ function render(){
   const col=node('section',undefined,'column'),head=node('div',undefined,'column-head'),info=node('div');
   info.append(node('h2',person.name),node('div',`남은 일 ${all.filter(t=>!t.done).length} · 완료 ${all.filter(t=>t.done).length}`,'count'));head.append(info);col.append(head);
   visible.forEach(task=>{
-   const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
+   const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.dataset.assignee=task.assignee;check.disabled=busy||task.assignee!==currentUserId;check.title=task.assignee===currentUserId?'완료 체크 / 해제':'담당자 본인만 완료 체크 / 해제할 수 있어요';check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
    card.append(node('div',task.createdBy?'등록: '+teamNameV3(task.createdBy):'등록: 기록 없음','task-author'));
    if(task.note)card.append(node('p',task.note));
    const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);appendTaskExtras(card,task);col.append(card);
@@ -85,7 +86,7 @@ function render(){
  void refreshVisibleComments();
 }
 function openEditor(id,task=null){editing=task;$('editorTitle').textContent=task?'할 일 수정':'할 일 추가';$('assignee').replaceChildren(...team.map(x=>{const o=node('option',x.name);o.value=x.id;return o;}));$('assignee').value=id;$('title').value=task?.title||'';$('due').value=task?.due||'';$('note').value=task?.note||'';$('formError').textContent='';$('editor').showModal();$('title').focus();}
-async function toggle(task,done){setBusy(true);try{await call('saveTask',token,{...task,done});}catch(e){$('status').textContent=message(e);render();setBusy(false);return;}setBusy(false);await load();}
+async function toggle(task,done){if(task.assignee!==currentUserId){$('status').textContent='완료 체크와 해제는 담당자 본인만 할 수 있어요.';render();return;}setBusy(true);try{await call('saveTask',token,{...task,done});}catch(e){$('status').textContent=message(e);render();setBusy(false);return;}setBusy(false);await load();}
 $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginButton').disabled=true;$('loginError').textContent='';try{const r=await call('login',$('loginUser').value,$('pin').value);token=r.token;currentUserId=r.user.id;$('pin').value='';$('who').textContent=r.user.name+'님';$('loginPanel').hidden=true;$('app').hidden=false;await load();timer=setInterval(()=>{if(!document.hidden&&!$('editor').open)load(true);},30000);}catch(e){$('loginError').textContent=message(e);}finally{$('loginButton').disabled=false;}};
 $('taskForm').onsubmit=async e=>{e.preventDefault();setBusy(true);$('formError').textContent='';try{await call('saveTask',token,{id:editing?.id,revision:editing?.revision,assignee:$('assignee').value,title:$('title').value,note:$('note').value,due:$('due').value,done:editing?.done||false});$('editor').close();}catch(e){$('formError').textContent=message(e);}finally{setBusy(false);}if(!$('editor').open)await load();};
 $('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventListener('cancel',e=>{if(busy)e.preventDefault();});$('showDone').onchange=render;$('refresh').onclick=()=>load();
