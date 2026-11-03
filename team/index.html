@@ -23,7 +23,7 @@ async function call(name,...args){
  if(!validEndpoint())throw new Error('관리자가 team/index.html의 APP_URL에 웹 앱 배포 주소를 먼저 넣어 주세요.');
  const payload={action:name};
  if(name==='login'){payload.id=args[0];payload.pin=args[1];}
- else{payload.token=args[0];if(name==='saveTask')payload.task=args[1];}
+ else{payload.token=args[0];if(['saveTask','getComments','addComment'].includes(name))payload.task=args[1];}
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try{
    const res=await fetch(APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),credentials:'omit',redirect:'follow',cache:'no-store',signal:controller.signal});
@@ -32,7 +32,7 @@ async function call(name,...args){
    if(!result.ok){const err=new Error(result.error||'요청을 처리하지 못했습니다.');err.code=result.code;throw err;}
    return result.data;
  }catch(err){
-   if(err.name==='AbortError'||err instanceof TypeError)throw new Error(name==='saveTask'?'저장 결과를 확인하지 못했습니다. 취소 후 새로고침으로 반영 여부를 확인하고 다시 시도하세요.':'서버에 연결하지 못했습니다. 인터넷과 웹 앱 배포 주소·권한을 확인하세요.');
+   if(err.name==='AbortError'||err instanceof TypeError)throw new Error(['saveTask','addComment'].includes(name)?'저장 결과를 확인하지 못했습니다. 취소 후 새로고침으로 반영 여부를 확인하고 다시 시도하세요.':'서버에 연결하지 못했습니다. 인터넷과 웹 앱 배포 주소·권한을 확인하세요.');
    throw err;
  }finally{clearTimeout(timeout);}
 }
@@ -56,7 +56,7 @@ function render(){
   visible.forEach(task=>{
    const card=node('article',undefined,'task'+(task.done?' done':'')),top=node('div',undefined,'task-top'),check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.setAttribute('aria-label',task.title+' 완료');check.onchange=()=>toggle(task,check.checked);top.append(check,node('strong',task.title));card.append(top);
    if(task.note)card.append(node('p',task.note));
-   const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);col.append(card);
+   const foot=node('footer'),due=node('span',task.due?'마감 '+task.due:'마감일 없음',!task.done&&task.due&&task.due<today()?'late':'');const edit=node('button','수정');edit.onclick=()=>openEditor(person.id,task);foot.append(due,edit);card.append(foot);appendTaskExtras(card,task);col.append(card);
   });
   if(!visible.length)col.append(node('div','등록된 할 일이 없어요.','empty'));
   const add=node('button','+ 할 일 추가','add');add.onclick=()=>openEditor(person.id);col.append(add);$('board').append(col);
@@ -70,4 +70,108 @@ $('cancel').onclick=()=>{if(!busy)$('editor').close();};$('editor').addEventList
 function leave(){generation++;clearInterval(timer);token='';tasks=[];team=[];$('board').replaceChildren();$('app').hidden=true;$('loginPanel').hidden=false;}
 $('exit').onclick=()=>{call('logout',token).catch(()=>{});leave();};
 if(!validEndpoint()){$('loginButton').disabled=true;$('loginError').textContent='연결 전입니다. team/index.html의 APP_URL에 /exec로 끝나는 웹 앱 배포 주소를 넣어 주세요.';}
+// 등록자 표시와 댓글 화면
+let commentTaskId = '', commentBusy = false, pendingComment = null;
+const commentDialog = document.createElement('dialog');
+commentDialog.id = 'commentDialog';
+commentDialog.innerHTML = `
+  <h2 id="commentTitle">댓글</h2>
+  <p class="muted">진행 상황을 남겨 주세요. 업무 메모는 그대로 유지됩니다.</p>
+  <div id="commentList" style="max-height:35vh;overflow:auto" aria-live="polite"></div>
+  <form id="commentForm">
+    <label class="field"><span>댓글 내용</span>
+      <textarea id="commentText" required maxlength="2000" placeholder="예: 남색 재고 확인했습니다."></textarea>
+    </label>
+    <p id="commentError" class="error" role="alert"></p>
+    <div class="actions">
+      <button id="commentRefresh" type="button">새로고침</button>
+      <button id="commentClose" type="button">닫기</button>
+      <button id="commentSave" class="primary" type="submit">댓글 등록</button>
+    </div>
+  </form>`;
+document.body.append(commentDialog);
+
+function teamNameV3(id) {
+  return team.find(u=>u.id===id)?.name || '확인 불가';
+}
+
+function appendTaskExtras(card, task) {
+  const author = node('p', task.createdBy
+    ? '등록: '+teamNameV3(task.createdBy)
+    : '등록: 기록 없음');
+  card.append(author);
+  const comments = node('button','댓글 보기 / 남기기');
+  comments.style.cssText='width:100%;margin-top:2px;font-size:13px';
+  comments.type='button';
+  comments.onclick=()=>openCommentsV3(task);
+  card.append(comments);
+}
+
+function commentBusyV3(value) {
+  commentBusy=value;
+  ['commentSave','commentClose','commentRefresh','commentText'].forEach(id=>$(id).disabled=value);
+}
+
+async function refreshCommentsV3() {
+  $('commentError').textContent='';
+  const epoch=generation, requestedTask=commentTaskId;
+  const data=await call('getComments',token,{taskId:requestedTask});
+  if(epoch!==generation||requestedTask!==commentTaskId||!commentDialog.open)return;
+  const list=$('commentList'); list.replaceChildren();
+  if (!data.comments.length) list.append(node('p','아직 댓글이 없어요.','muted'));
+  data.comments.forEach(c=>{
+    const item=node('article');
+    item.style.cssText='padding:12px 0;border-bottom:1px solid #e1e6ef';
+    item.append(node('strong',teamNameV3(c.author)));
+    const date=new Date(c.createdAt);
+    item.append(node('div',isNaN(date.getTime())?'':date.toLocaleString('ko-KR'),'muted'));
+    const body=node('p',c.text);body.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';
+    item.append(body);list.append(item);
+  });
+}
+
+async function openCommentsV3(task) {
+  commentTaskId=task.id;pendingComment=null;
+  $('commentTitle').textContent=task.title+' · 댓글';
+  $('commentText').value='';$('commentList').replaceChildren(node('p','불러오는 중…'));
+  commentDialog.showModal();commentBusyV3(true);
+  try {await refreshCommentsV3();}
+  catch(e){$('commentError').textContent=message(e);}
+  finally {commentBusyV3(false);}
+}
+
+$('commentClose').onclick=()=>{if(!commentBusy)commentDialog.close();};
+commentDialog.addEventListener('cancel',e=>{if(commentBusy)e.preventDefault();});
+$('commentRefresh').onclick=async()=>{
+  commentBusyV3(true);
+  try {await refreshCommentsV3();}
+  catch(e){$('commentError').textContent=message(e);}
+  finally {commentBusyV3(false);}
+};
+$('commentForm').onsubmit=async e=>{
+  e.preventDefault();
+  const text=$('commentText').value.trim();if(!text)return;
+  if(!pendingComment || pendingComment.text!==text){
+    pendingComment={taskId:commentTaskId,text,requestId:crypto.randomUUID()};
+  }
+  commentBusyV3(true);$('commentError').textContent='';
+  try {
+    await call('addComment',token,pendingComment);
+    $('commentText').value='';pendingComment=null;
+    await refreshCommentsV3();
+  }catch(e){$('commentError').textContent=message(e)+' 새로고침으로 등록 여부를 확인할 수 있습니다.';}
+  finally {commentBusyV3(false);}
+};
+
+const leaveBeforeCommentsV3 = leave;
+leave = function() {
+  commentDialog.close();
+  $('commentList').replaceChildren();
+  $('commentText').value='';
+  $('commentError').textContent='';
+  commentTaskId=''; pendingComment=null;
+  $('editor').close();
+  leaveBeforeCommentsV3();
+};
+
 </script></body></html>
