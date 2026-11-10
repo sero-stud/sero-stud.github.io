@@ -45,6 +45,7 @@
       const video=safeURL(r['영상링크']); const match=video.match(/(?:shorts\/|v=|youtu\.be\/)([\w-]{11})/); const embed=match?'<iframe title="작업 영상" loading="lazy" style="display:block;width:100%;max-width:320px;aspect-ratio:9/16;border:0;margin-top:12px" src="https://www.youtube.com/embed/'+match[1]+'" allowfullscreen></iframe>':'';
       return '<article><h2>'+esc(r['날짜']||'날짜 확인 중')+'</h2><p>'+esc(r['작업'])+'</p>'+(r['장비명']?'<p class="muted">'+esc(r['장비명'])+'</p>':'')+'<div class="row">'+(video?'<a target="_blank" rel="noopener noreferrer" href="'+esc(video)+'">작업 영상 보기 ↗</a>':'')+'</div>'+embed+'</article>'
     }).join('');
+    window.recordSeroStoreView?.(id);
   };
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
   fetch(SHEET_CSV_URL+'&t='+Date.now(),{signal:controller.signal}).then(r=>{if(!r.ok)throw Error('load');return r.text()}).then(t=>{if(/^\s*</.test(t))throw Error('not csv');render(parseCSV(t))}).catch(()=>{status.innerHTML='청소 기록을 불러오지 못했습니다. <button type="button" id="retry">다시 시도</button>';document.getElementById('retry').onclick=()=>location.reload()}).finally(()=>clearTimeout(timeout));
